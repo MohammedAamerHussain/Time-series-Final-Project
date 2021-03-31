@@ -1,0 +1,4218 @@
+---
+title: "Final Project"
+author: "Aamer hussain"
+date: "3/13/2021"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+setwd("/Users/mohammedhussain/Desktop/UCHICAGO assigments/Time series/Final project")
+```
+
+
+```{r}
+#install.packages('ggplot2', repos = "http://cran.us.r-project.org")
+#install.packages('vars', repos = "http://cran.us.r-project.org")
+install.packages('Metrics', repos = "http://cran.us.r-project.org")
+```
+
+```{r}
+library("forecast")
+library("xts")
+library("TSA")
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(tidyverse)
+library(ggthemes)
+library(tsibble)
+library(zoo)
+library(tseries)
+library(hts)
+```
+
+
+```{r}
+solar_monthly <-  read.table("solar_monthly.csv", sep=";", header=T)
+solar_monthly
+```
+
+#GHI - Global horizontal irradiation [Wh/m2]
+#DNI - Direct normal irradiation [Wh/m2]
+#DIF - Diffuse horizontal irradiation [Wh/m2]
+#TEMP - Air temperature at 2 m [deg. C]
+#WS - Wind speed at 10 m [m/s]
+#WD - Wind direction at 10 m [deg.]
+#RH - Relative humidity [%]
+#AP - Atmospheric pressure [hPa]
+#PWAT - Precipitable water [kg/m2]
+#GHId - Average daily sum of global horizontal irradiation [kWh/m2]
+
+#DNId - Average daily sum of direct normal irradiation [kWh/m2]
+
+#DIFd - Average daily sum of diffuse horizontal irradiation [Wh/m2]
+
+#GTId - Average daily sum of global tilted irradiation [kWh/m2] (fixed inclination: 33 deg. azimuth: 180 deg.
+
+#GHIm - Monthly sum of global horizontal irradiation [kWh/m2]
+#GTIm - Monthly sum of global tilted irradiation [kWh/m2] (fixed inclination: 33 deg. azimuth: 180 deg.
+#DIFm - Monthly sum of diffuse horizontal irradiation [Wh/m2]
+#DNIm - Monthly sum of direct normal irradiation [kWh/m2]
+
+```{r}
+library(lubridate)
+```
+
+
+
+
+
+
+
+```{r}
+solar_monthly <-  read.table("solar_monthly.csv", sep=";", header=T)
+solar_monthly$Year <- as.numeric(solar_monthly$Year)
+solar_monthly$PWAT....... <- as.numeric(gsub("\\,", "",solar_monthly$PWAT.......))
+colnames(solar_monthly)[15] <- "PWAT"
+solar_monthly
+```
+
+```{r}
+solar_monthly<-solar_monthly[!(solar_monthly$Year=="2020"),]
+solar_monthly
+```
+
+```{r}
+solar_monthly$Date <- as.yearmon(paste(solar_monthly$Year, solar_monthly$Month), "%Y %m")
+solar_monthly
+```
+
+```{r}
+train.solar.monthly <- solar_monthly[solar_monthly$Year < 2019,]
+train.solar.monthly
+```
+
+```{r}
+test.solar.monthly <- solar_monthly[solar_monthly$Year == 2019,]
+test.solar.monthly
+```
+
+
+```{r}
+GHIm = ts(train.solar.monthly$GHIm,start=c(1994,1),frequency = 12) 
+DNIm = ts(train.solar.monthly$DNIm,start=c(1994,1),frequency = 12) 
+DIFm = ts(train.solar.monthly$DIFm,start=c(1994,1),frequency = 12)
+GTIm = ts(train.solar.monthly$GTIm,start=c(1994,1),frequency = 12) 
+
+TEMPm = ts(train.solar.monthly$TEMP,start=c(1994,1),frequency = 12) 
+WSm = ts(train.solar.monthly$WS,start=c(1994,1),frequency = 12) 
+RHm = ts(train.solar.monthly$RH,start=c(1994,1),frequency = 12)
+APm = ts(train.solar.monthly$AP,start=c(1994,1),frequency = 12) 
+PWATm = ts(train.solar.monthly$PWAT,start=c(1994,1),frequency = 12) 
+```
+
+
+
+```{r}
+ts.plot(GHIm)
+```
+
+
+GHIm data looks stationary from the plot
+
+```{r}
+adf.test(GHIm)
+```
+
+According to ADF test , GHIm data is stationary
+
+```{r}
+kpss.test(GHIm, null = c("Level","Trend"))
+```
+
+According to KPSS test , GHIm data is stationary
+
+### Seasonal and trend decomposition of GHIm  Time series
+
+```{r}
+decom.GHIm <- decompose(GHIm, type = c("additive","multiplicative"), filter = NULL)
+plot(decom.GHIm)  
+```
+
+
+
+### STL decomposition 
+
+
+```{r}
+GHIm %>%
+  stl(t.window=12,s.window="periodic", robust=TRUE) %>%
+  autoplot()
+```
+
+```{r}
+GTIm %>%
+  stl(t.window=12,s.window="periodic", robust=TRUE) %>%
+  autoplot()
+```
+
+
+```{r}
+DIFm %>%
+  stl(t.window=12,s.window="periodic", robust=TRUE) %>%
+  autoplot()
+```
+
+```{r}
+DNIm %>%
+  stl(t.window=12,s.window="periodic", robust=TRUE) %>%
+  autoplot()
+```
+
+
+## Season plot for GHIm
+```{r}
+seasonplot(GHIm,  type = "o",
+            main="Seasonal Plot : GHIm", ylab = "GHIm",
+           xlab = "Month", col = 4)
+```
+
+## Month plot for DIFm
+```{r}
+monthplot(GHIm)
+```
+
+
+```{r}
+tsdisplay(GHIm)
+```
+
+
+```{r}
+ts.plot(DNIm)
+```
+
+
+DNIm data looks stationary from the plot
+
+```{r}
+adf.test(DNIm)
+```
+
+According to ADF test , DNIm data is stationary
+
+```{r}
+kpss.test(DNIm, null = c("Level","Trend"))
+```
+
+According to KPSS test , DNIm data is stationary
+
+
+
+### Seasonal and trend decomposition of DNIm  Time series
+
+```{r}
+decom.DNIm <- decompose(DNIm, type = c("additive","multiplicative"), filter = NULL)
+plot(decom.DNIm)  
+```
+
+
+## Season plot for DNIm
+```{r}
+seasonplot(DNIm,  type = "o",
+            main="Seasonal Plot : GTIm", ylab = "GTIm",
+           xlab = "Month", col = 4)
+```
+
+## Month plot for DIFm
+```{r}
+monthplot(DNIm)
+```
+
+
+```{r}
+tsdisplay(DNIm)
+```
+
+
+```{r}
+ts.plot(DIFm)
+```
+
+
+DIFm data looks stationary from the plot
+
+```{r}
+adf.test(DIFm)
+```
+
+According to ADF test , DNIm data is stationary
+
+```{r}
+kpss.test(DIFm, null = c("Level","Trend"))
+```
+
+According to KPSS test , DIFm data is stationary
+
+
+### Seasonal decomposition of DIFm  Time series
+
+```{r}
+decom.DIFm <- decompose(DIFm, type = c("additive","multiplicative"), filter = NULL)
+plot(decom.DIFm)  
+```
+
+
+## Season plot for DIFm
+```{r}
+seasonplot(DIFm,  type = "o",
+            main="Seasonal Plot : DIFm", ylab = "DIFm",
+           xlab = "Month", col = 4)
+```
+
+## Month plot for DIFm
+```{r}
+monthplot(DIFm)
+```
+
+
+```{r}
+tsdisplay(DIFm)
+```
+
+
+
+```{r}
+ts.plot(GTIm)
+```
+
+
+GTIm data looks stationary from the plot
+
+```{r}
+adf.test(GTIm)
+```
+
+According to ADF test , GTIm data is stationary
+
+```{r}
+kpss.test(GTIm, null = c("Level","Trend"))
+```
+
+According to KPSS test , GTIm data is stationary
+
+
+### Seasonal decomposition of GTIm  Time series
+
+```{r}
+decom.GTIm <- decompose(GTIm, type = c("additive","multiplicative"), filter = NULL)
+plot(decom.GTIm)  
+```
+
+## Season plot for GTIm
+```{r}
+seasonplot(GTIm,  type = "o",
+            main="Seasonal Plot : GTIm", ylab = "GTIm",
+           xlab = "Month", col = 4)
+```
+
+## Month plot for GTIm
+```{r}
+monthplot(GTIm)
+```
+
+
+## Season plot for DNIm
+```{r}
+seasonplot(DNIm,  type = "o",
+            main="Seasonal Plot : DNIm", ylab = "DNIm",
+           xlab = "Month", col = 4)
+```
+
+## Month plot for DNIm
+```{r}
+monthplot(DNIm)
+```
+
+
+
+
+```{r}
+tsdisplay(GTIm)
+```
+
+
+From the ACF and PACF plots above,
+
+The wavy pattern of ACF suggest the existence of seasonality in the series.
+
+There is no evidence of changing variance.
+
+Patterns of moving average is seen by existence of successive points.
+
+The lengthier first line in PACF suggests the possibility of trend.
+
+There seems to be no intervention at any point.
+
+
+
+
+```{r}
+
+```
+
+
+
+
+### 1. Linear regression (GHIm, GTIm, DIFm, DNIm are dependent, PWAT(precipitation water) independent)
+
+
+## GHIm - linear regression
+```{r}
+lm.GHIm.PWAT <- lm(GHIm ~ PWAT, data = train.solar.monthly)
+summary(lm.GHIm.PWAT)
+```
+
+## Residual analysis
+
+## ACF plot of the residuals 
+```{r}
+acf(lm.GHIm.PWAT$residuals, main = " ACF plot of residuals for GHIm vs PWAT", lag = 50)
+```
+
+
+
+```{r}
+checkresiduals(lm.GHIm.PWAT$residuals)
+```
+
+There is a lot of auto-correlation among the residuals of the linear regression of GHIm vs PWATm
+
+
+```{r}
+Irradiance_vs_PWAT_scatter <- function(ts,irradiance_type, PWATm) {
+  ggplot(ts, aes(x=PWATm, y=ts)) + geom_point() + geom_smooth(method='lm') + 
+    labs(title=paste(irradiance_type, 'Irradiance vs. Precipitataion water'),subitle='Linear Model')
+}
+```
+
+
+## Regression line for GHIm Vs PWATm
+```{r}
+Irradiance_vs_PWAT_scatter(GHIm, 'GHIm', PWATm)
+```
+
+
+## Stationarity tests for the residuals of the GHIm vs PWATm linear model
+
+```{r}
+
+adf.test(lm.GHIm.PWAT$residuals)
+```
+
+```{r}
+
+kpss.test(lm.GHIm.PWAT$residuals)
+```
+
+The residuals of the linear model lm.GHIm.PWAT are stationary but there is still a lot of auto-correlation in the residuals.
+
+## Forecast Analysis for the linear model lm.GHIm.PWAT
+
+
+## Linear Regression forecast for the linear model lm.GHIm.PWAT
+
+
+```{r}
+lm_forecast.GHIm <- predict(lm.GHIm.PWAT, newdata=test.solar.monthly)
+```
+
+
+```{r}
+
+lm.GHIm.PWAT.forecast.plot = ts.intersect(ts(lm_forecast.GHIm) ,ts(test.solar.monthly$GHIm )) 
+plot(lm.GHIm.PWAT.forecast.plot , type = 'l', yax.flip=T, main = "Fig 1.0")
+
+```
+
+```{r}
+forecast_plot_2019 <- function(ts, irradiance_type,actual,predictions) {
+  X <- ts$Date
+  Y1 <- actual
+  Y2 <- predictions
+  par(mar = c(5, 5, 3, 5))
+  plot(x=X, y=Y1, type ="l", ylab = paste("Actual values of ",irradiance_type),main = paste(irradiance_type, "Actual values Vs Predicted values "),   xlab = "Time", xaxt='n',col = "blue") 
+  par(new = TRUE)
+  plot(x=X, y=Y2, type = "l", xaxt = "n", yaxt = "n", ylab = "", xlab = "", col = "red", lty = 2)
+  axis(side = 4)
+  legend("topleft", c("Actual values", " Predicted values "),col = c("blue", "red"), lty = c(1, 2))
+}
+```
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GHIm',test.solar.monthly$GHIm,lm_forecast.GHIm)
+```
+
+
+
+
+
+## GTIm - linear regression
+```{r}
+lm.GTIm.PWAT <- lm(GTIm ~ PWAT , data = train.solar.monthly)
+summary(lm.GTIm.PWAT)
+```
+
+## Residual analysis
+
+## ACF plot of the residuals 
+```{r}
+acf(lm.GTIm.PWAT$residuals, main = " ACF plot of residuals for GTIm vs PWAT", lag = 50)
+```
+
+```{r}
+?checkresiduals
+```
+
+```{r}
+checkresiduals(lm.GTIm.PWAT$residuals,plot = TRUE)
+```
+
+There is a lot of auto-correlation among the residuals of the linear regression of GTIm vs PWATm
+
+
+## Regression line for GTIm Vs PWATm
+```{r}
+Irradiance_vs_PWAT_scatter(GTIm, 'GTIm', PWATm)
+```
+
+## Stationarity tests for the residuals of the GTIm vs PWATm linear model
+
+```{r}
+
+adf.test(lm.GTIm.PWAT$residuals)
+```
+
+```{r}
+
+kpss.test(lm.GTIm.PWAT$residuals)
+```
+
+The residuals of the linear model lm.GTIm.PWAT are stationary but there is still a lot of auto-correlation in the residuals.
+
+## Forecast Analysis for the linear model lm.GTIm.PWAT
+
+
+## Linear Regression forecast for the linear model lm.GTIm.PWAT
+
+
+```{r}
+lm_forecast.GTIm <- predict(lm.GTIm.PWAT, newdata=test.solar.monthly)
+```
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GTIm',test.solar.monthly$GTIm,lm_forecast.GTIm)
+```
+
+```{r}
+
+lm.GTIm.PWAT.forecast.plot = ts.intersect(ts(lm_forecast.GTIm) ,ts(test.solar.monthly$GTIm )) 
+plot(lm.GTIm.PWAT.forecast.plot , type = 'l', yax.flip=T, main = "Fig 1.0")
+
+```
+
+
+
+## DIFm - linear regression
+```{r}
+lm.DIFm.PWAT <- lm(DIFm ~ PWAT, data = train.solar.monthly)
+summary(lm.DIFm.PWAT)
+```
+
+## Residual analysis
+
+## ACF plot of the residuals 
+```{r}
+acf(lm.DIFm.PWAT$residuals, main = " ACF plot of residuals for DIFm vs PWAT", lag = 50)
+```
+
+
+
+```{r}
+checkresiduals(lm.DIFm.PWAT$residuals)
+```
+
+There is a lot of auto-correlation among the residuals of the linear regression of DIFm vs PWATm
+
+
+
+## Regression line for DIFm Vs PWATm
+```{r}
+Irradiance_vs_PWAT_scatter(DIFm, 'DIFm', PWATm)
+```
+
+## Stationarity tests for the residuals of the DIFm vs PWATm linear model
+
+```{r}
+
+adf.test(lm.DIFm.PWAT$residuals)
+```
+
+```{r}
+
+kpss.test(lm.DIFm.PWAT$residuals)
+```
+
+The residuals of the linear model lm.DIFm.PWAT are stationary but there is still a lot of auto-correlation in the residuals.
+
+## Forecast Analysis for the linear model lm.DIFm.PWAT
+
+
+## Linear Regression forecast for the linear model lm.DIFm.PWAT
+
+
+```{r}
+lm_forecast.DIFm <- predict(lm.DIFm.PWAT, newdata=test.solar.monthly)
+```
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DIFm',test.solar.monthly$DIFm,lm_forecast.DIFm)
+```
+
+```{r}
+
+lm.DIFm.PWAT.forecast.plot = ts.intersect(ts(lm_forecast.DIFm) ,ts(test.solar.monthly$DIFm )) 
+plot(lm.DIFm.PWAT.forecast.plot , type = 'l', yax.flip=T, main = "Fig 1.0")
+
+```
+
+
+## DNIm - linear regression
+```{r}
+lm.DNIm.PWAT <- lm(DNIm ~ PWAT , data = train.solar.monthly)
+summary(lm.DNIm.PWAT)
+```
+
+## Residual analysis
+
+## ACF plot of the residuals 
+```{r}
+acf(lm.DNIm.PWAT$residuals, main = " ACF plot of residuals for DNIm vs PWAT", lag = 50)
+```
+
+
+
+```{r}
+checkresiduals(lm.DNIm.PWAT$residuals)
+```
+
+There is a lot of auto-correlation among the residuals of the linear regression of DNIm vs PWATm
+
+
+
+## Regression line for DNIm Vs PWATm
+```{r}
+Irradiance_vs_PWAT_scatter(DNIm, 'DNIm', PWATm)
+```
+
+
+## Stationarity tests for the residuals of the DNIm vs PWATm linear model
+
+```{r}
+
+adf.test(lm.DNIm.PWAT$residuals)
+```
+
+```{r}
+
+kpss.test(lm.DNIm.PWAT$residuals)
+```
+
+The residuals of the linear model lm.DNIm.PWAT are stationary but there is still a lot of auto-correlation in the residuals.
+
+## Forecast Analysis for the linear model lm.DNIm.PWAT
+
+
+## Linear Regression forecast for the linear model lm.DNIm.PWAT
+
+
+```{r}
+lm_forecast.DNIm <- predict(lm.DNIm.PWAT, newdata=test.solar.monthly)
+```
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DNIm',test.solar.monthly$DNIm,lm_forecast.DNIm)
+```
+
+```{r}
+
+lm.DNIm.PWAT.forecast.plot = ts.intersect(ts(lm_forecast.DNIm) ,ts(test.solar.monthly$DNIm )) 
+plot(lm.DNIm.PWAT.forecast.plot , type = 'l', yax.flip=T, main = "Fig 1.0")
+
+```
+
+
+Linear regression is really a bad choice in this case for all the 4 time series(GHIm, GTIm, DIFm, DNIm)looking at the residuals normality plots and ACF plots
+
+Even the R-squared values are really low.
+
+### Holt winters Model
+
+
+## GHIm
+```{r}
+
+hw_addi_GHIm = hw(GHIm,seasonal="additive")
+hw_multip_GHIm = hw(GHIm,seasonal="multiplicative")
+hw_multipDmp_GHIm = hw(GHIm,seasonal="multiplicative" , damped = T)
+hw_multiDmpExp_GHIm = hw(GHIm,seasonal="multiplicative" , damped = T, exponential = T)
+hw_multipExp_GHIm = hw(GHIm,seasonal="multiplicative" , damped = F, exponential = T)
+
+```
+
+
+
+
+## GTIm
+
+```{r}
+hw_addi_GTIm = hw(GTIm,seasonal="additive")
+hw_multip_GTIm = hw(GTIm,seasonal="multiplicative")
+hw_multipDmp_GTIm = hw(GTIm,seasonal="multiplicative" , damped = T)
+hw_multiDmpExp_GTIm = hw(GTIm,seasonal="multiplicative" , damped = T, exponential = T)
+hw_multipExp_GTIm = hw(GTIm,seasonal="multiplicative" , damped = F, exponential = T)
+```
+
+
+## DIFm
+```{r}
+hw_addi_DIFm = hw(DIFm,seasonal="additive")
+hw_multip_DIFm = hw(DIFm,seasonal="multiplicative")
+hw_multipDmp_DIFm = hw(DIFm,seasonal="multiplicative" , damped = T)
+hw_multiDmpExp_DIFm = hw(DIFm,seasonal="multiplicative" , damped = T, exponential = T)
+hw_multipExp_DIFm = hw(DIFm,seasonal="multiplicative" , damped = F, exponential = T)
+```
+
+
+## DNIm
+```{r}
+hw_addi_DNIm = hw(DNIm,seasonal="additive")
+hw_multip_DNIm = hw(DNIm,seasonal="multiplicative")
+hw_multipDmp_DNIm = hw(DNIm,seasonal="multiplicative" , damped = T)
+hw_multiDmpExp_DNIm = hw(DNIm,seasonal="multiplicative" , damped = T, exponential = T)
+hw_multipExp_DNIm = hw(DNIm,seasonal="multiplicative" , damped = F, exponential = T)
+```
+
+### Holt winters for DNIm
+
+```{r}
+hw_mods_DNIm <- data.frame(BIC= numeric() , AICC=numeric() , AIC=numeric())
+hw_mods_DNIm = rbind(hw_mods_DNIm,cbind(Model="hw_addi_DNIm",MASE=accuracy(hw_addi_DNIm)[6],
+                                               BIC = hw_addi_DNIm$model$bic,
+                                               AICC =hw_addi_DNIm$model$aicc,
+                                               AIC = hw_addi_DNIm$model$aic))
+
+hw_mods_DNIm = rbind(hw_mods_DNIm,cbind(Model="hw_multip_DNIm",MASE=accuracy(hw_multip_DNIm)[6],
+                                               BIC = hw_multip_DNIm$model$bic,
+                                               AICC = hw_multip_DNIm$model$aicc,
+                                               AIC = hw_multip_DNIm$model$aic))
+
+hw_mods_DNIm = rbind(hw_mods_DNIm,cbind(Model="hw_multipDmp_DNIm",MASE=accuracy(hw_multipDmp_DNIm)[6],
+                                               BIC = hw_multipDmp_DNIm$model$bic,
+                                               AICC = hw_multipDmp_DNIm$model$aicc,
+                                               AIC = hw_multipDmp_DNIm$model$aic))
+
+hw_mods_DNIm = rbind(hw_mods_DNIm,cbind(Model="hw_multiDmpExp_DNIm",MASE=accuracy(hw_multiDmpExp_DNIm)[6],
+                                               BIC = hw_multiDmpExp_DNIm$model$bic,
+                                               AICC = hw_multiDmpExp_DNIm$model$aicc,
+                                               AIC = hw_multiDmpExp_DNIm$model$aic))
+
+hw_mods_DNIm = rbind(hw_mods_DNIm,cbind(Model="hw_multipExp_DNIm",MASE=accuracy(hw_multipExp_DNIm)[6],
+                                               BIC = hw_multipExp_DNIm$model$bic,
+                                               AICC = hw_multipExp_DNIm$model$aicc,
+                                               AIC = hw_multipExp_DNIm$model$aic))
+
+hw_mods_DNIm
+
+```
+
+In terms of MASE, BIC , AICc, AIC , of all the models , hw_addi_DNIm has stood out and had the best performance for DNIm
+
+# Summary for the model hw_addi_DNIm
+```{r}
+hw_addi_DNIm$model
+```
+
+## Stationary tests for the residuals of the holt winters model  for DNIm
+
+```{r}
+adf.test(hw_addi_DNIm$residuals)
+```
+
+
+```{r}
+kpss.test(hw_addi_DNIm$residuals)
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of the holt winters model hw_addi_DNIm for DNIm are stationary 
+
+
+```{r}
+checkresiduals(hw_addi_DNIm)
+```
+
+
+There is not much correlation among the residuals of the holt winters model. The residuals look more like the white noise.
+
+
+```{r}
+tsdisplay(hw_addi_DNIm$residuals)
+```
+
+
+```{r}
+acf(hw_addi_DNIm$residuals)
+```
+
+## Forecast analysis of the holt winters model hw_addi_DNIm
+
+
+```{r}
+plot(forecast(hw_addi_DNIm, h=12), ylab = "DNIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DNIm',test.solar.monthly$DNIm,forecast(hw_addi_DNIm, h=12)$mean)
+```
+
+
+### Holt winters for DIFm
+
+```{r}
+hw_mods_DIFm <- data.frame(BIC= numeric() , AICC=numeric() , AIC=numeric())
+hw_mods_DIFm = rbind(hw_mods_DIFm,cbind(Model="hw_addi_DIFm",MASE=accuracy(hw_addi_DIFm)[6],
+                                               BIC = hw_addi_DIFm$model$bic,
+                                               AICC =hw_addi_DIFm$model$aicc,
+                                               AIC = hw_addi_DIFm$model$aic))
+
+hw_mods_DIFm = rbind(hw_mods_DIFm,cbind(Model="hw_multip_DIFm",MASE=accuracy(hw_multip_DIFm)[6],
+                                               BIC = hw_multip_DIFm$model$bic,
+                                               AICC = hw_multip_DIFm$model$aicc,
+                                               AIC = hw_multip_DIFm$model$aic))
+
+hw_mods_DIFm = rbind(hw_mods_DIFm,cbind(Model="hw_multipDmp_DIFm",MASE=accuracy(hw_multipDmp_DIFm)[6],
+                                               BIC = hw_multipDmp_DIFm$model$bic,
+                                               AICC = hw_multipDmp_DIFm$model$aicc,
+                                               AIC = hw_multipDmp_DIFm$model$aic))
+
+hw_mods_DIFm = rbind(hw_mods_DIFm,cbind(Model="hw_multiDmpExp_DIFm",MASE=accuracy(hw_multiDmpExp_DIFm)[6],
+                                               BIC = hw_multiDmpExp_DIFm$model$bic,
+                                               AICC = hw_multiDmpExp_DIFm$model$aicc,
+                                               AIC = hw_multiDmpExp_DIFm$model$aic))
+
+hw_mods_DIFm = rbind(hw_mods_DIFm,cbind(Model="hw_multipExp_DIFm",MASE=accuracy(hw_multipExp_DIFm)[6],
+                                               BIC = hw_multipExp_DIFm$model$bic,
+                                               AICC = hw_multipExp_DIFm$model$aicc,
+                                               AIC = hw_multipExp_DIFm$model$aic))
+
+hw_mods_DIFm
+
+```
+
+
+Overall consideration In terms of MASE, BIC , AICc, AIC , of all the models , hw_multipExp_DIFm has stood out and had the best overall performance for DIFm
+
+
+# Summary for the model hw_multipExp_DIFm
+```{r}
+hw_multipExp_DIFm$model
+```
+
+## Stationary tests for the residuals of the holt winters model hw_multipExp_DIFm for DIFm
+
+```{r}
+adf.test(hw_multipExp_DIFm$residuals)
+```
+
+
+```{r}
+kpss.test(hw_multipExp_DIFm$residuals)
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of the holt winters model hw_multipExp_DIFm for DIFm are stationary 
+
+
+```{r}
+checkresiduals(hw_multipExp_DIFm)
+```
+
+
+There is not much correlation among the residuals of the holt winters model. The residuals look more like the white noise.
+
+
+```{r}
+tsdisplay(hw_multipExp_DIFm$residuals)
+```
+
+
+```{r}
+acf(hw_multipExp_DIFm$residuals)
+```
+
+## Forecast analysis of the holt winters model hw_multipExp_DIFm for DIfm
+
+
+```{r}
+plot(forecast(hw_multipExp_DIFm, h=12), ylab = "DIFm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DIFm',test.solar.monthly$DIFm,forecast(hw_multipExp_DIFm, h=12)$mean)
+```
+
+The forecast plot looks really good.
+
+### Holt winters for GHIm
+
+```{r}
+hw_mods_GHIm <- data.frame(BIC= numeric() , AICC=numeric() , AIC=numeric())
+hw_mods_GHIm = rbind(hw_mods_GHIm,cbind(Model="hw_addi_GHIm",MASE=accuracy(hw_addi_GHIm)[6],
+                                               BIC = hw_addi_GHIm$model$bic,
+                                               AICC =hw_addi_GHIm$model$aicc,
+                                               AIC = hw_addi_GHIm$model$aic))
+
+hw_mods_GHIm = rbind(hw_mods_GHIm,cbind(Model="hw_multip_GHIm",MASE=accuracy(hw_multip_GHIm)[6],
+                                               BIC = hw_multip_GHIm$model$bic,
+                                               AICC = hw_multip_GHIm$model$aicc,
+                                               AIC = hw_multip_GHIm$model$aic))
+
+hw_mods_GHIm = rbind(hw_mods_GHIm,cbind(Model="hw_multipDmp_GHIm",MASE=accuracy(hw_multipDmp_GHIm)[6],
+                                               BIC = hw_multipDmp_GHIm$model$bic,
+                                               AICC = hw_multipDmp_GHIm$model$aicc,
+                                               AIC = hw_multipDmp_GHIm$model$aic))
+
+hw_mods_GHIm = rbind(hw_mods_GHIm,cbind(Model="hw_multiDmpExp_GHIm",MASE=accuracy(hw_multiDmpExp_GHIm)[6],
+                                               BIC = hw_multiDmpExp_GHIm$model$bic,
+                                               AICC = hw_multiDmpExp_GHIm$model$aicc,
+                                               AIC = hw_multiDmpExp_GHIm$model$aic))
+
+hw_mods_GHIm = rbind(hw_mods_GHIm,cbind(Model="hw_multipExp_GHIm",MASE=accuracy(hw_multipExp_GHIm)[6],
+                                               BIC = hw_multipExp_GHIm$model$bic,
+                                               AICC = hw_multipExp_GHIm$model$aicc,
+                                               AIC = hw_multipExp_GHIm$model$aic))
+
+hw_mods_GHIm
+
+```
+
+
+Overall consideration In terms of MASE, BIC , AICc, AIC , of all the models , hw_addi_GHIm model has stood out and had the best overall performance for GHIm
+
+
+# Summary for the model hw_addi_GHIm for GHIm
+```{r}
+hw_addi_GHIm$model
+```
+
+## Stationary tests for the residuals of the holt winters model hw_addi_GHIm for GHIm
+
+```{r}
+adf.test(hw_addi_GHIm$residuals)
+```
+
+
+```{r}
+kpss.test(hw_addi_GHIm$residuals)
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of the holt winters model hw_addi_GHIm for GHIm are stationary 
+
+
+```{r}
+checkresiduals(hw_addi_GHIm)
+```
+
+
+There is not much correlation among the residuals of the holt winters model. The residuals look more like the white noise.
+
+
+```{r}
+tsdisplay(hw_addi_GHIm$residuals)
+```
+
+
+```{r}
+acf(hw_addi_GHIm$residuals)
+```
+
+## Forecast analysis of the holt winters model hw_addi_GHIm for GHIm
+
+
+```{r}
+plot(forecast(hw_addi_GHIm, h=12), ylab = "GHIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GHIm',test.solar.monthly$GHIm,forecast(hw_addi_GHIm, h=12)$mean)
+```
+
+The forecast plot looks really good and almost perfect . This model performed really good.
+
+
+### Holt winters for GTIm
+
+```{r}
+hw_mods_GTIm <- data.frame(BIC= numeric() , AICC=numeric() , AIC=numeric())
+hw_mods_GTIm = rbind(hw_mods_GTIm,cbind(Model="hw_addi_GTIm",MASE=accuracy(hw_addi_GTIm)[6],
+                                               BIC = hw_addi_GTIm$model$bic,
+                                               AICC =hw_addi_GTIm$model$aicc,
+                                               AIC = hw_addi_GTIm$model$aic))
+
+hw_mods_GTIm = rbind(hw_mods_GTIm,cbind(Model="hw_multip_GTIm",MASE=accuracy(hw_multip_GTIm)[6],
+                                               BIC = hw_multip_GTIm$model$bic,
+                                               AICC = hw_multip_GTIm$model$aicc,
+                                               AIC = hw_multip_GTIm$model$aic))
+
+hw_mods_GTIm = rbind(hw_mods_GTIm,cbind(Model="hw_multipDmp_GtIm",MASE=accuracy(hw_multipDmp_GTIm)[6],
+                                               BIC = hw_multipDmp_GTIm$model$bic,
+                                               AICC = hw_multipDmp_GTIm$model$aicc,
+                                               AIC = hw_multipDmp_GTIm$model$aic))
+
+hw_mods_GTIm = rbind(hw_mods_GTIm,cbind(Model="hw_multiDmpExp_GTIm",MASE=accuracy(hw_multiDmpExp_GTIm)[6],
+                                               BIC = hw_multiDmpExp_GTIm$model$bic,
+                                               AICC = hw_multiDmpExp_GTIm$model$aicc,
+                                               AIC = hw_multiDmpExp_GTIm$model$aic))
+
+hw_mods_GTIm = rbind(hw_mods_GTIm,cbind(Model="hw_multipExp_GTIm",MASE=accuracy(hw_multipExp_GTIm)[6],
+                                               BIC = hw_multipExp_GTIm$model$bic,
+                                               AICC = hw_multipExp_GTIm$model$aicc,
+                                               AIC = hw_multipExp_GTIm$model$aic))
+
+hw_mods_GTIm
+
+```
+
+Overall consideration In terms of MASE, BIC , AICc, AIC , of all the models , hw_addi_GTIm model has stood out and had the best overall performance for GTIm
+
+
+
+# Summary for the model hw_addi_GTIm for GTIm
+```{r}
+hw_addi_GTIm$model
+```
+
+## Stationary tests for the residuals of the holt winters model hw_addi_GTIm for GTIm
+
+```{r}
+adf.test(hw_addi_GTIm$residuals)
+```
+
+
+```{r}
+kpss.test(hw_addi_GTIm$residuals)
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of the holt winters model hw_addi_GTIm for GTIm are stationary 
+
+
+```{r}
+checkresiduals(hw_addi_GTIm)
+```
+
+
+There is not much correlation among the residuals of the holt winters model. The residuals look more like the white noise. The residuals are also normal(gaussian distribution)
+
+
+```{r}
+tsdisplay(hw_addi_GTIm$residuals)
+```
+
+
+```{r}
+acf(hw_addi_GTIm$residuals)
+```
+
+No correlation at all among the residuals
+
+## Forecast analysis of the holt winters model hw_addi_GTIm for GTIm
+
+
+```{r}
+plot(forecast(hw_addi_GTIm, h=12), ylab = "GTIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GTIm',test.solar.monthly$GTIm,forecast(hw_addi_GTIm, h=12)$mean)
+```
+
+
+The forecast is not impressive.
+
+### ARIMA modelling
+
+
+## GHIm
+```{r}
+arima.GHIm <- auto.arima(train.solar.monthly$GHIm, seasonal = F, stepwise = FALSE)
+summary(arima.GHIm)
+```
+
+
+## Stationary tests for the residuals of the ARIMA model arima.GHIm for GHIm
+
+```{r}
+adf.test(arima.GHIm$residuals)
+```
+
+
+```{r}
+kpss.test(arima.GHIm$residuals)
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of the ARIMA model arima.GHIm for GHIm are stationary 
+
+
+```{r}
+checkresiduals(arima.GHIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is some correlation among the residuals of the ARIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(arima.GHIm$residuals)
+```
+
+
+```{r}
+acf(arima.GHIm$residuals)
+```
+
+There is definitely some correlation among the residuals
+
+## Forecast analysis of the ARIMA model arima.GHIm for GHIm
+
+
+```{r}
+plot(forecast(arima.GHIm, h=12), ylab = "GHIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GHIm',test.solar.monthly$GHIm,forecast(arima.GHIm, h=12)$mean)
+```
+
+
+The forecast almost looks perfect.
+
+```{r}
+arima.DNIm <- auto.arima(train.solar.monthly$DNIm, seasonal = F, stepwise = FALSE)
+summary(arima.DNIm)
+```
+
+## Stationary tests for the residuals of the ARIMA model arima.DNIm for DNIm
+
+```{r}
+adf.test(arima.DNIm$residuals)
+```
+
+
+```{r}
+kpss.test(arima.DNIm$residuals)
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of the ARIMA model arima.DNIm for DNIm are stationary 
+
+
+```{r}
+checkresiduals(arima.DNIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is some correlation among the residuals of the ARIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(arima.DNIm$residuals)
+```
+
+
+```{r}
+acf(arima.DNIm$residuals)
+```
+
+There is definitely some correlation among the residuals
+
+## Forecast analysis of the ARIMA model arima.DNIm for DNIm
+
+
+```{r}
+plot(forecast(arima.DNIm, h=12), ylab = "DNIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DNIm',test.solar.monthly$DNIm,forecast(arima.DNIm, h=12)$mean)
+```
+
+
+The forecast is not good.
+
+```{r}
+arima.GTIm <- auto.arima(train.solar.monthly$GTIm, seasonal = F, stepwise = FALSE)
+summary(arima.GTIm)
+```
+
+
+## Stationary tests for the residuals of the ARIMA model arima.GTIm for GTIm
+
+```{r}
+adf.test(arima.GTIm$residuals)
+```
+
+
+```{r}
+kpss.test(arima.GTIm$residuals)
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of the ARIMA model arima.GTIm for GTIm are stationary 
+
+
+```{r}
+checkresiduals(arima.GTIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is some correlation among the residuals of the ARIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(arima.GTIm$residuals)
+```
+
+
+```{r}
+acf(arima.GTIm$residuals)
+```
+
+There is definitely some correlation among the residuals
+
+## Forecast analysis of the ARIMA model arima.GTIm for GTIm
+
+
+```{r}
+plot(forecast(arima.GTIm, h=12), ylab = "GTIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GTIm',test.solar.monthly$GTIm,forecast(arima.GTIm, h=12)$mean)
+```
+
+
+The forecast is not good.
+
+
+```{r}
+arima.DIFm <- auto.arima(train.solar.monthly$DIFm, seasonal = F, stepwise = FALSE)
+summary(arima.DIFm)
+```
+
+
+## Stationary tests for the residuals of the ARIMA model arima.DIFm for DIFm
+
+```{r}
+adf.test(arima.DIFm$residuals)
+```
+
+The residuals of the arima model arima.DIFm has totally failed as the residuals are not stationary .
+
+```{r}
+kpss.test(arima.DIFm$residuals)
+```
+
+
+Both KPSS test and ADF tests contradict each other that the residuals of the ARIMA model arima.DIFm for DIFm are stationary 
+
+ADF test results : residuals of arima.DIFm are not stationary 
+
+KPSS test results : residuals of arima.DIFm are  stationary 
+```{r}
+checkresiduals(arima.DIFm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is lot of correlation among the residuals of the ARIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(arima.DIFm$residuals)
+```
+
+
+```{r}
+acf(arima.GTIm$residuals)
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the ARIMA model arima.DIFm for DIFm
+
+
+```{r}
+plot(forecast(arima.DIFm, h=12), ylab = "DIFm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DIFm',test.solar.monthly$DIFm,forecast(arima.DIFm, h=12)$mean)
+```
+
+
+The forecast is not that good. but its acceptable
+
+
+
+### SARIMA modelling or SEASONAL ARIMA
+
+
+##GHIm
+```{r}
+sarima.GHIm <- auto.arima(train.solar.monthly$GHIm, seasonal = T, stepwise = FALSE)
+summary(sarima.GHIm)
+```
+
+## Stationary tests for the residuals of the SARIMA model sarima.GHIm for GHIm
+
+```{r}
+adf.test(sarima.GHIm$residuals)
+```
+
+
+```{r}
+kpss.test(sarima.GHIm$residuals)
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the SARIMA model sarima.GHIm for GHIm are stationary 
+
+```{r}
+checkresiduals(sarima.GHIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is some level of correlation among the residuals of the SARIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(sarima.GHIm$residuals)
+```
+
+
+```{r}
+acf(sarima.GHIm$residuals)
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the SARIMA model sarima.GHIm for GHim
+
+
+```{r}
+plot(forecast(sarima.GHIm, h=12), ylab = "GHIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GHIm',test.solar.monthly$GHIm,forecast(sarima.GHIm, h=12)$mean)
+```
+
+
+The forecast looks good.
+
+```{r}
+sarima.GTIm <- auto.arima(train.solar.monthly$GTIm, seasonal = T, stepwise = FALSE)
+summary(sarima.GTIm)
+```
+
+
+
+## Stationary tests for the residuals of the SARIMA model sarima.GTIm for GTIm
+
+```{r}
+adf.test(sarima.GTIm$residuals)
+```
+
+
+
+```{r}
+kpss.test(sarima.GTIm$residuals)
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the SARIMA model sarima.GTIm for GTIm are stationary 
+
+```{r}
+checkresiduals(sarima.GTIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is a lot  of correlation among the residuals of the SARIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(sarima.GTIm$residuals)
+```
+
+
+```{r}
+acf(sarima.GTIm$residuals)
+```
+
+
+
+## Forecast analysis of the SARIMA model sarima.GTIm for GTim
+
+
+```{r}
+plot(forecast(sarima.GTIm, h=12), ylab = "GTIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GTIm',test.solar.monthly$GTIm,forecast(sarima.GTIm, h=12)$mean)
+```
+
+
+The forecast is really bad.
+
+
+```{r}
+sarima.DNIm <- auto.arima(train.solar.monthly$DNIm, seasonal = T, stepwise = FALSE)
+summary(sarima.DNIm)
+```
+
+## Stationary tests for the residuals of the SARIMA model sarima.DNIm for DNIm
+
+```{r}
+adf.test(sarima.DNIm$residuals)
+```
+
+
+
+```{r}
+kpss.test(sarima.DNIm$residuals)
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the SARIMA model sarima.DNIm for DNIm are stationary 
+
+```{r}
+checkresiduals(sarima.DNIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is lot of correlation among the residuals of the SARIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(sarima.DNIm$residuals)
+```
+
+Lot of correaltion. Far away from being white noise
+```{r}
+acf(sarima.DNIm$residuals)
+```
+
+
+
+## Forecast analysis of the SARIMA model sarima.DNIm for DNIm
+
+
+```{r}
+plot(forecast(sarima.DNIm, h=12), ylab = "DNIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DNIm',test.solar.monthly$DNIm,forecast(sarima.DNIm, h=12)$mean)
+```
+
+
+Really bad forecast
+
+```{r}
+sarima.DIFm <- auto.arima(train.solar.monthly$DIFm, seasonal = T, stepwise = FALSE)
+summary(sarima.DIFm)
+```
+
+
+## Stationary tests for the residuals of the SARIMA model sarima.DIFm for DIFm
+
+```{r}
+adf.test(sarima.DIFm$residuals)
+```
+
+ADF tests indicates that the residuals are not stationary
+
+```{r}
+kpss.test(sarima.DIFm$residuals)
+```
+
+
+KPSS test indicates that the residuals are stationary 
+
+Both KPSS test and ADF tests contradict each other  .
+
+
+```{r}
+checkresiduals(sarima.DIFm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is lot of correlation among the residuals of the SARIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(sarima.DIFm$residuals)
+```
+
+Lot of correaltion. Far away from being white noise
+```{r}
+acf(sarima.DIFm$residuals)
+```
+
+
+
+## Forecast analysis of the SARIMA model sarima.DIFm for DIFm
+
+
+```{r}
+plot(forecast(sarima.DIFm, h=12), ylab = "DIFm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DIFm',test.solar.monthly$DIFm,forecast(sarima.DIFm, h=12)$mean)
+```
+
+This forecast is better than the others.
+
+
+###  Fractional ARIMA (ARFIMA) - check applicability first using the ACF
+
+
+Check applicability first using the ACF. 
+
+The time series can only be a good candidate for  ARFIMA model if the ACF plot decays slowly over a period of time
+ARFIMA models are really good for detecting long-memory.
+
+If any time series has remaining existent autocorrelation at deeper lags , then it is an indication that the series has a long memory or it has a depedence on lots of lagged values.
+
+
+## GHIm
+
+
+```{r}
+acf(GHIm, 250)
+```
+
+
+It is definitely a slowly decaying plot , so applying ARFIMA to the GHIm  data makes sense.
+
+```{r}
+arfima.GHIm <- arfima(train.solar.monthly$GHIm)
+summary(arfima.GHIm)
+```
+
+
+
+## Stationary tests for the residuals of the ARFIMA model arfima.GHIm for GHIm
+
+```{r}
+adf.test(arfima.GHIm$residuals)
+```
+
+
+```{r}
+kpss.test(arfima.GHIm$residuals)
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the ARFIMA model arfima.GHIm for GHIm are stationary 
+
+```{r}
+checkresiduals(arfima.GHIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is lot of correlation among the residuals of the ARFIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(arfima.GHIm$residuals)
+```
+
+
+```{r}
+acf(arfima.GHIm$residuals)
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the ARFIMA model arfima.GHIm for GHIm
+
+
+```{r}
+plot(forecast(arfima.GHIm, h=12), ylab = "GHIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GHIm',test.solar.monthly$GHIm,forecast(arfima.GHIm, h=12)$mean)
+```
+
+The forecast is okay , not exactly perfect 
+
+## GTIm
+
+
+```{r}
+acf(GTIm, 250)
+```
+
+
+It is definitely a slowly decaying plot , so applying ARFIMA to the GTIm  data makes sense.
+
+```{r}
+arfima.GTIm <- arfima(train.solar.monthly$GTIm)
+summary(arfima.GTIm)
+```
+
+
+## Stationary tests for the residuals of the ARFIMA model arfima.GTIm for GTIm
+
+```{r}
+adf.test(arfima.GTIm$residuals)
+```
+
+
+```{r}
+kpss.test(arfima.GTIm$residuals)
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the ARFIMA model arfima.GTIm for GTIm are stationary 
+
+```{r}
+checkresiduals(arfima.GTIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is lot of correlation among the residuals of the ARFIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(arfima.GTIm$residuals)
+```
+
+
+```{r}
+acf(arfima.GTIm$residuals)
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the ARFIMA model arfima.GTIm for GTIm
+
+
+```{r}
+plot(forecast(arfima.GTIm, h=12), ylab = "GTIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GTIm',test.solar.monthly$GTIm,forecast(arfima.GTIm, h=12)$mean)
+```
+
+The forecast is really bad.
+
+
+## DIFm
+
+
+```{r}
+acf(DIFm, 250)
+```
+
+
+It is definitely a slowly decaying plot , so applying ARFIMA to the GTIm  data makes sense.
+
+```{r}
+arfima.DIFm <- arfima(train.solar.monthly$DIFm)
+summary(arfima.DIFm)
+```
+
+
+## Stationary tests for the residuals of the ARFIMA model arfima.DIFm for DIFm
+
+```{r}
+adf.test(arfima.DIFm$residuals)
+```
+
+
+```{r}
+kpss.test(arfima.DIFm$residuals)
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the ARFIMA model arfima.DIFm for DIFm are stationary 
+
+```{r}
+checkresiduals(arfima.DIFm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is lot of correlation among the residuals of the ARFIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(arfima.DIFm$residuals)
+```
+
+
+```{r}
+acf(arfima.DIFm$residuals)
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the ARFIMA model arfima.DIFm for DIFm
+
+
+```{r}
+plot(forecast(arfima.DIFm, h=12), ylab = "DIFm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DIFm',test.solar.monthly$DIFm,forecast(arfima.DIFm, h=12)$mean)
+```
+
+The forecast is really bad.
+
+
+
+
+## DNIm
+
+
+```{r}
+acf(DNIm, 250)
+```
+
+
+It is definitely a slowly decaying plot , so applying ARFIMA to the DNIm makes sense.
+
+```{r}
+arfima.DNIm <- arfima(train.solar.monthly$DNIm)
+summary(arfima.DNIm)
+```
+
+
+## Stationary tests for the residuals of the ARFIMA model arfima.DNIm for DNIm
+
+```{r}
+adf.test(arfima.DNIm$residuals)
+```
+
+
+```{r}
+kpss.test(arfima.DNIm$residuals)
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the ARFIMA model arfima.DNIm for DNIm are stationary 
+
+```{r}
+checkresiduals(arfima.DNIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is lot of correlation among the residuals of the ARFIMA model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(arfima.DNIm$residuals)
+```
+
+
+```{r}
+acf(arfima.DNIm$residuals)
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the ARFIMA model arfima.DNIm for DNIm
+
+
+```{r}
+plot(forecast(arfima.DNIm, h=12), ylab = "DNIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DNIm',test.solar.monthly$DNIm,forecast(arfima.DNIm, h=12)$mean)
+```
+
+The forecast is really bad.
+
+
+
+### Linear regression with ARMA errors (use arima with xreg)
+
+## GHIm
+
+Here xreg is precipitation water - PWATm
+
+```{r}
+lm.arima.GHIm <- auto.arima(train.solar.monthly$GHIm, xreg=train.solar.monthly$PWAT)
+summary(lm.arima.GHIm)
+```
+
+
+
+## Stationary tests for the residuals of the ARIMA with regression errors model lm.arima.GHIm for GHIm ~ PWAT
+
+```{r}
+adf.test(lm.arima.GHIm$residuals)
+```
+
+
+```{r}
+kpss.test(lm.arima.GHIm$residuals)
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of the ARIMA with regression errors model lm.arima.GHIm for GHIm ~ PWAT are stationary 
+
+
+```{r}
+checkresiduals(lm.arima.GHIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is some correlation among the residuals of the ARIMA with regression errors model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(lm.arima.GHIm$residuals)
+```
+
+
+```{r}
+acf(lm.arima.GHIm$residuals)
+```
+
+There is definitely some correlation among the residuals
+
+## Forecast analysis of the ARIMA with regreession errors model lm.arima.GHIm for GHIm ~ PWAT
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GHIm',test.solar.monthly$GHIm,predict(lm.arima.GHIm, newxreg=test.solar.monthly$PWAT)$pred)
+```
+
+
+This forecast is realy pathetic 
+
+## GTIm
+
+Here xreg is precipitation water - PWATm
+
+```{r}
+lm.arima.GTIm <- auto.arima(train.solar.monthly$GTIm, xreg=train.solar.monthly$PWAT)
+summary(lm.arima.GTIm)
+```
+
+
+## Stationary tests for the residuals of the ARIMA with regression errors model lm.arima.GTIm for GTIm ~ PWAT
+
+```{r}
+adf.test(lm.arima.GTIm$residuals)
+```
+
+
+
+```{r}
+kpss.test(lm.arima.GTIm$residuals)
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of the ARIMA with regression errors model lm.arima.GTIm for GHIm ~ PWAT are not stationary 
+
+
+```{r}
+checkresiduals(lm.arima.GTIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is massive level of  correlation among the residuals of the ARIMA with regression errors model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(lm.arima.GTIm$residuals)
+```
+
+
+```{r}
+acf(lm.arima.GTIm$residuals)
+```
+
+There is definitely lot of auto correlation among the residuals
+
+## Forecast analysis of the ARIMA with regreession errors model lm.arima.GTIm for GTIm ~ PWAT
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GTIm',test.solar.monthly$GTIm,predict(lm.arima.GTIm, newxreg=test.solar.monthly$PWAT)$pred)
+```
+
+
+This forecast is realy pathetic 
+
+
+
+## DIFm
+
+Here xreg is precipitation water - PWATm
+
+```{r}
+lm.arima.DIFm <- auto.arima(train.solar.monthly$DIFm, xreg=train.solar.monthly$PWAT)
+summary(lm.arima.DIFm)
+```
+
+
+## Stationary tests for the residuals of the ARIMA with regression errors model lm.arima.DIFm for DIFm ~ PWAT
+
+```{r}
+adf.test(lm.arima.DIFm$residuals)
+```
+
+According to ADF test , the residuals are stationary 
+
+```{r}
+kpss.test(lm.arima.DIFm$residuals)
+```
+
+According to KPSS test , the residuals are not stationary 
+
+Both KPSS test and ADF tests contradict each other 
+
+
+```{r}
+checkresiduals(lm.arima.DIFm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is massive level of  correlation among the residuals of the ARIMA with regression errors model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(lm.arima.DIFm$residuals)
+```
+
+
+```{r}
+acf(lm.arima.DIFm$residuals)
+```
+
+There is definitely lot of auto correlation among the residuals
+
+## Forecast analysis of the ARIMA with regreession errors model lm.arima.DIFm for DIFm ~ PWAT
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DIFm',test.solar.monthly$DIFm,predict(lm.arima.DIFm, newxreg=test.solar.monthly$PWAT)$pred)
+```
+
+
+This forecast looks better than the previous ones but overall not good.
+
+
+
+## DNIm
+
+Here xreg is precipitation water - PWATm
+
+```{r}
+lm.arima.DNIm <- auto.arima(train.solar.monthly$DNIm, xreg=train.solar.monthly$PWAT)
+summary(lm.arima.DNIm)
+```
+
+
+## Stationary tests for the residuals of the ARIMA with regression errors model lm.arima.DNIm for DNIm ~ PWAT
+
+```{r}
+adf.test(lm.arima.DNIm$residuals)
+```
+
+According to ADF test , the residuals are stationary 
+
+```{r}
+kpss.test(lm.arima.DNIm$residuals)
+```
+
+According to KPSS test , the residuals are not stationary 
+
+Both KPSS test and ADF tests contradict each other 
+
+
+```{r}
+checkresiduals(lm.arima.DNIm)
+```
+
+There is definitely some increase in the level of variance among the residuals . GARCH might be a good option
+
+There is massive level of  correlation among the residuals of the ARIMA with regression errors model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(lm.arima.DNIm$residuals)
+```
+
+
+```{r}
+acf(lm.arima.DNIm$residuals)
+```
+
+There is definitely lot of auto correlation among the residuals
+
+## Forecast analysis of the ARIMA with regreession errors model lm.arima.DIFm for DIFm ~ PWAT
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DNIm',test.solar.monthly$DNIm,predict(lm.arima.DNIm, newxreg=test.solar.monthly$PWAT)$pred)
+```
+
+
+This forecast is really bad .
+
+
+
+### ARMA and GARCH combination - use the fGarch R library and garchFit()
+
+```{r}
+install.packages("fGarch", repos = "http://cran.us.r-project.org")
+library("fGarch")
+```
+
+
+GARCH models are used when a time series displays heteroskedasticity, 
+that is, non-constant variance.  Specifically when the variance of the errors is 
+autocorrelated.
+
+
+## GHIm
+
+```{r}
+acf(GHIm)
+
+```
+
+```{r}
+acf(GHIm^2)
+```
+
+The ACF of the GHIm shows autocorrelation
+
+the ACF of the squared GHIm also shows autocorrelation indicating that the variance of the same data might also have autocorrelation.
+
+
+# finding the values of AR terms and MA terms or p,q
+```{r}
+
+arma.GHIm <- auto.arima(train.solar.monthly$GHIm, seasonal = F,allowdrift = FALSE)
+summary(arma.GHIm)
+```
+
+Based on the best model results from the auto.arima summary , we will be going with AR/p = 4 and MA/q =0
+```{r}
+garch.GHIm <- garchFit(~arma(4,0) + garch(1,1), data=ts(train.solar.monthly$GHIm,frequency = 12), cond.dist = "std", trace=F)
+summary(garch.GHIm)
+```
+
+
+
+## Stationary tests for the residuals of the GARCH model for GHIm
+
+```{r}
+adf.test(residuals(garch.GHIm))
+```
+
+
+```{r}
+kpss.test(residuals(garch.GHIm))
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of GARCH model for GHIm  are stationary 
+
+
+```{r}
+checkresiduals(residuals(garch.GHIm))
+```
+
+The variance has definitely reduced with the use of the GARCH model compared to the other models .
+
+There is lot of correlation among the residuals of the GARCH model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal. 
+
+
+```{r}
+tsdisplay(residuals(garch.GHIm))
+```
+
+Variance is not a problem here but auto-correlation is.
+
+```{r}
+acf(residuals(garch.GHIm))
+```
+
+There is definitely some correlation among the residuals
+
+## Forecast analysis of the GARCH model for GHIm 
+
+
+```{r}
+predict(garch.GHIm, n.ahead = 2)
+```
+
+For some weird reason , the GARCH model of GHIm is able to make only 2 step ahead forecasts , not 12
+
+I even tried the log transformation and 1st differencing with the data bit still the GARCH model could not predict 12 step ahead forecasts
+
+
+## GTIm
+
+```{r}
+acf(GTIm)
+
+```
+
+```{r}
+acf(GTIm^2)
+```
+
+The ACF of the GTIm shows autocorrelation
+
+the ACF of the squared GTIm also shows autocorrelation indicating that the variance of the same data might also have autocorrelation.
+
+
+# finding the values of AR terms and MA terms or p,q
+```{r}
+
+arma.GTIm <- auto.arima(train.solar.monthly$GTIm, seasonal = F,allowdrift = FALSE)
+summary(arma.GTIm)
+```
+
+Based on the best model results from the auto.arima summary , we will be going with AR/p = 5 and MA/q =1
+```{r}
+garch.GTIm <- garchFit(~arma(5,1) + garch(1,1), data= ts(train.solar.monthly$GTIm, frequency = 12), cond.dist = "std", trace=F)
+summary(garch.GTIm)
+```
+
+## Stationary tests for the residuals of the GARCH model for GTIm
+
+```{r}
+adf.test(residuals(garch.GTIm))
+```
+
+
+```{r}
+kpss.test(residuals(garch.GTIm))
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of GARCH model for GTIm  are stationary 
+
+
+```{r}
+checkresiduals(residuals(garch.GTIm))
+```
+
+The variance has definitely reduced with the use of the GARCH model compared to the other models .
+
+There is lot of correlation among the residuals of the GARCH model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal. 
+
+
+```{r}
+tsdisplay(residuals(garch.GTIm))
+```
+
+Variance is not a problem here but auto-correlation is.
+
+```{r}
+acf(residuals(garch.GHIm))
+```
+
+There is definitely some correlation among the residuals
+
+## Forecast analysis of the GARCH model for GTIm 
+
+
+```{r}
+predict(garch.GHIm, n.ahead = 2)
+```
+
+For some weird reason , the GARCH model of GTIm is able to make only 2 step ahead forecasts , not 12 
+
+I even tried the log transformation and 1st differencing with the data bit still the GARCH model could not predict 12 step ahead forecasts
+
+
+## DIFm
+
+```{r}
+acf(DIFm)
+
+```
+
+```{r}
+acf(DIFm^2)
+```
+
+The ACF of the DIFm shows autocorrelation
+
+the ACF of the squared DIFm also shows autocorrelation indicating that the variance of the same data might also have autocorrelation.
+
+
+# finding the values of AR terms and MA terms or p,q
+```{r}
+
+arma.DIFm <- auto.arima(DIFm, seasonal = F,allowdrift = FALSE)
+summary(arma.DIFm)
+```
+
+Based on the best model results from the auto.arima summary , we will be going with AR/p = 5 and MA/q =0
+```{r}
+garch.DIFm <- garchFit(~arma(5,0) + garch(1,1), data=ts(train.solar.monthly$DIFm, frequency = 12), cond.dist = "std", trace=F)
+summary(garch.DIFm)
+```
+
+## Stationary tests for the residuals of the GARCH model for DIFm
+
+```{r}
+adf.test(residuals(garch.DIFm))
+```
+
+
+```{r}
+kpss.test(residuals(garch.DIFm))
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of GARCH model for DIFm  are stationary 
+
+
+```{r}
+checkresiduals(residuals(garch.DIFm))
+```
+
+The variance has definitely reduced with the use of the GARCH model compared to the other models .
+
+There is lot of correlation among the residuals of the GARCH model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal. 
+
+
+```{r}
+tsdisplay(residuals(garch.DIFm))
+```
+
+Variance is not a problem here but auto-correlation is.
+
+```{r}
+acf(residuals(garch.DIFm))
+```
+
+There is definitely some correlation among the residuals
+
+## Forecast analysis of the GARCH model for DIFm 
+
+
+```{r}
+predict(garch.DIFm, n.ahead = 2)
+```
+
+For some weird reason , the GARCH model of DIFm is able to make only 2 step ahead forecasts , not 12 
+
+
+I even tried the log transformation and 1st differencing with the data bit still the GARCH model could not predict 12 step ahead forecasts
+
+## DNIm
+
+```{r}
+acf(DNIm)
+
+```
+
+```{r}
+acf(DNIm^2)
+```
+
+The ACF of the DNIm shows autocorrelation
+
+the ACF of the squared DNIm also shows autocorrelation indicating that the variance of the same data might also have autocorrelation.
+
+
+# finding the values of AR terms and MA terms or p,q
+```{r}
+
+arma.DNIm <- auto.arima(DNIm, seasonal = F,allowdrift = FALSE)
+summary(arma.DNIm)
+```
+
+
+converting the data to the xts object 
+```{r}
+#DNIm.xts<-xts(train.solar.monthly$DNIm,order.by = train.solar.monthly$Date)
+```
+
+
+```{r}
+#og.DNIm <- diff(log(DNIm.xts))[-1]
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+Based on the best model results from the auto.arima summary , we will be going with AR/p = 5 and MA/q = 1
+```{r}
+garch.DNIm <- garchFit(~arma(5,0) + garch(1,1), data=ts(train.solar.monthly$DNIm, frequency = 12), cond.dist = "std", trace=F)
+summary(garch.DNIm)
+```
+## Stationary tests for the residuals of the GARCH model for DNIm
+
+```{r}
+adf.test(residuals(garch.DNIm))
+```
+
+
+```{r}
+kpss.test(residuals(garch.DNIm))
+```
+
+
+Both KPSS test and ADF tests confirm that the residuals of GARCH model for DNIm  are stationary 
+
+
+```{r}
+checkresiduals(residuals(garch.DIFm))
+```
+
+The variance has definitely reduced with the use of the GARCH model compared to the other models .
+
+There is lot of correlation among the residuals of the GARCH model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal. 
+
+
+```{r}
+tsdisplay(residuals(garch.DNIm))
+```
+
+Variance is not a problem here but auto-correlation is.
+
+```{r}
+acf(residuals(garch.DNIm))
+```
+
+There is definitely some correlation among the residuals
+
+## Forecast analysis of the GARCH model for DNIm 
+
+
+```{r}
+predict(garch.DNIm, n.ahead = 2)
+```
+
+For some weird reason , the GARCH model of DNIm is able to make only 2 step ahead forecasts , not 12 
+
+I even tried the log transformation and 1st differencing with the data bit still the GARCH model could not predict 12 step ahead forecasts
+
+
+### TBATS modelling 
+
+TBATS model is a time series model for series exhibiting multiple complex seasonalities
+
+
+## GHIm
+
+```{r}
+tbats.GHIm<-tbats(train.solar.monthly$GHIm, biasadj=TRUE)
+summary(tbats.GHIm)
+```
+
+## Stationary tests for the residuals of the TBATS model tbats.GHIm for GHIm
+
+```{r}
+adf.test(residuals(tbats.GHIm))
+```
+
+
+```{r}
+kpss.test(residuals(tbats.GHIm))
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the TBATS model tbats.GHIm for GHIm are stationary 
+
+```{r}
+checkresiduals(residuals(tbats.GHIm))
+```
+
+There is definitely some increase in the level of variance among the residuals .
+
+There is lot of correlation among the residuals of the TBATS model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(residuals(tbats.GHIm))
+```
+
+
+```{r}
+acf(residuals(tbats.GHIm))
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the TBATS model tbats.GHIm) for GHIm
+
+
+```{r}
+plot(forecast(tbats.GHIm, h=12), ylab = "GHIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GHIm',test.solar.monthly$GHIm,forecast(tbats.GHIm, h=12)$mean)
+```
+
+
+The forecast looks good.
+
+
+
+## GTIm
+
+```{r}
+tbats.GTIm<-tbats(train.solar.monthly$GTIm, biasadj=TRUE)
+summary(tbats.GTIm)
+```
+
+## Stationary tests for the residuals of the TBATS model tbats.GTIm for GTIm
+
+```{r}
+adf.test(residuals(tbats.GTIm))
+```
+
+
+```{r}
+kpss.test(residuals(tbats.GTIm))
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the TBATS model tbats.GTIm for GTIm are stationary 
+
+```{r}
+checkresiduals(residuals(tbats.GTIm))
+```
+
+There is definitely some increase in the level of variance among the residuals .
+
+There is lot of correlation among the residuals of the TBATS model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(residuals(tbats.GTIm))
+```
+
+
+```{r}
+acf(residuals(tbats.GTIm))
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the TBATS model tbats.GTIm) for GTIm
+
+
+```{r}
+plot(forecast(tbats.GTIm, h=12), ylab = "GTIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GTIm',test.solar.monthly$GTIm,forecast(tbats.GTIm, h=12)$mean)
+```
+
+
+The forecast is not that good.
+
+
+
+## DIFm
+
+```{r}
+tbats.DIFm<-tbats(train.solar.monthly$DIFm, biasadj=TRUE)
+summary(tbats.DIFm)
+```
+
+## Stationary tests for the residuals of the TBATS model tbats.DIFm for DIFm
+
+```{r}
+adf.test(residuals(tbats.DIFm))
+```
+
+
+```{r}
+kpss.test(residuals(tbats.DIFm))
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the TBATS model tbats.DIFm for DIFm are stationary 
+
+```{r}
+checkresiduals(residuals(tbats.DIFm))
+```
+
+There is definitely some increase in the level of variance among the residuals .
+
+There is lot of correlation among the residuals of the TBATS model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(residuals(tbats.DIFm))
+```
+
+
+```{r}
+acf(residuals(tbats.DIFm))
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the TBATS model tbats.DIFm) for DIFm
+
+
+```{r}
+plot(forecast(tbats.DIFm, h=12), ylab = "DIFm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DIFm',test.solar.monthly$DIFm,forecast(tbats.DIFm, h=12)$mean)
+```
+
+
+The forecast is not impressive.
+
+
+
+## DNIm
+
+```{r}
+tbats.DNIm<-tbats(train.solar.monthly$DNIm, biasadj=TRUE)
+summary(tbats.DNIm)
+```
+
+## Stationary tests for the residuals of the TBATS model tbats.DNIm for DNIm
+
+```{r}
+adf.test(residuals(tbats.DNIm))
+```
+
+
+```{r}
+kpss.test(residuals(tbats.DNIm))
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the TBATS model tbats.DNIm for DNIm are stationary 
+
+```{r}
+checkresiduals(residuals(tbats.DNIm))
+```
+
+There is definitely some increase in the level of variance among the residuals .
+
+There is lot of correlation among the residuals of the TBATS model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(residuals(tbats.DNIm))
+```
+
+
+```{r}
+acf(residuals(tbats.DNIm))
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the TBATS model tbats.DNIm) for DNIm
+
+
+```{r}
+plot(forecast(tbats.DNIm, h=12), ylab = "DNIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DNIm',test.solar.monthly$DNIm,forecast(tbats.DNIm, h=12)$mean)
+```
+
+
+The forecast is not impressive.
+
+
+### ETS modelling 
+
+
+## GHIm
+```{r}
+ets.GHIm <-ets(ts(train.solar.monthly$GHIm,frequency = 12))
+summary(ets.GHIm)
+```
+
+
+## Stationary tests for the residuals of the ETS model ets.GHIm for GHIm
+
+```{r}
+adf.test(residuals(ets.GHIm))
+```
+
+
+```{r}
+kpss.test(residuals(ets.GHIm))
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the ETS model ets.GHIm for GHIm are stationary 
+
+```{r}
+checkresiduals(ets.GHIm)
+```
+
+There is not much of variance among the residuals .
+
+Also there is not much of correlation among the residuals of the ETS model. The residuals kind of look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(residuals(ets.GHIm))
+```
+
+Not much correlation among the residuals
+
+```{r}
+acf(residuals(ets.GHIm))
+```
+
+There is definitely not  lot of correlation among the residuals
+
+## Forecast analysis of the ETS model ets.GHIm for GHIm
+
+
+```{r}
+plot(forecast(ets.GHIm, h=12), ylab = "GHIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GHIm',test.solar.monthly$GHIm,forecast(ets.GHIm, h=12)$mean)
+```
+
+
+The forecast is really impressive.
+
+
+
+
+## GTIm
+```{r}
+ets.GTIm <-ets(ts(train.solar.monthly$GTIm,frequency = 12))
+summary(ets.GTIm)
+```
+
+
+## Stationary tests for the residuals of the ETS model ets.GTIm for GTIm
+
+```{r}
+adf.test(residuals(ets.GTIm))
+```
+
+
+```{r}
+kpss.test(residuals(ets.GTIm))
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the ETS model ets.GTIm for GTIm are stationary 
+
+```{r}
+checkresiduals(residuals(ets.GTIm))
+```
+
+There is not much of variance among the residuals .
+
+Also there is no  correlation among the residuals of the ETS model. The residuals kind of look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(residuals(ets.GTIm))
+```
+
+
+```{r}
+acf(residuals(ets.GTIm))
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the ETS model ets.GTIm for GTIm
+
+
+```{r}
+plot(forecast(ets.GTIm, h=12), ylab = "GTIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GTIm',test.solar.monthly$GHIm,forecast(ets.GTIm, h=12)$mean)
+```
+
+
+The forecast is good but not really impressive.
+
+
+
+## DIFm
+```{r}
+ets.DIFm <-ets(ts(train.solar.monthly$DIFm,frequency = 12))
+summary(ets.DIFm)
+```
+
+
+## Stationary tests for the residuals of the ETS model ets.DIFm for DIFm
+
+```{r}
+adf.test(residuals(ets.DIFm))
+```
+
+
+```{r}
+kpss.test(residuals(ets.DIFm))
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the ETS model ets.DIFm for DIFm are stationary 
+
+```{r}
+checkresiduals(ets.DIFm)
+```
+
+There is not much of variance among the residuals .
+
+Also there is no  correlation among the residuals of the ETS model. The residuals kind of look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(residuals(ets.DIFm))
+```
+
+
+```{r}
+acf(residuals(ets.DIFm))
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the ETS model ets.DIFm for DIFm
+
+
+```{r}
+plot(forecast(ets.DIFm, h=12), ylab = "DIFm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DIFm',test.solar.monthly$DIFm,forecast(ets.DIFm, h=12)$mean)
+```
+
+
+The forecast is not good .
+
+
+## DNIm
+```{r}
+ets.DNIm <-ets(ts(train.solar.monthly$DNIm,frequency = 12))
+summary(ets.DNIm)
+```
+
+
+## Stationary tests for the residuals of the ETS model ets.DNIm for DNIm
+
+```{r}
+adf.test(residuals(ets.DNIm))
+```
+
+
+```{r}
+kpss.test(residuals(ets.DNIm))
+```
+
+
+Both KPSS test and ADF tests conclude that the residuals of the ETS model ets.DNIm for DNIm are stationary 
+
+```{r}
+checkresiduals(residuals(ets.DNIm))
+```
+
+There is not much of variance among the residuals .
+
+Also there is some level correlation among the residuals of the ETS model. The residuals do not look like the white noise. The residuals are almost normal(gaussian distribution) , not perfectly normal
+
+
+```{r}
+tsdisplay(residuals(ets.DNIm))
+```
+
+
+```{r}
+acf(residuals(ets.DNIm))
+```
+
+There is definitely lot of correlation among the residuals
+
+## Forecast analysis of the ETS model ets.DNIm for DNIm
+
+
+```{r}
+plot(forecast(ets.DNIm, h=12), ylab = "DNIm")
+```
+
+
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DNIm',test.solar.monthly$DNIm,forecast(ets.DNIm, h=12)$mean)
+```
+
+
+The forecast is not good .
+
+
+###  Vector Auto regression Modelling 
+
+
+```{r}
+library(vars)
+```
+
+
+```{r}
+vector.data <- cbind(GHIm,GTIm,DIFm, DNIm)
+colnames(vector.data) < c("GHIm","GTIm","DIFm", "DNIm")
+```
+
+
+
+
+```{r}
+VAR.basic <- VARselect(vector.data, lag.max = 20, type = "const")
+VAR.basic
+```
+
+
+```{r}
+var.model1 <- VAR(vector.data, p = 2, type = "const", season = NULL, exog = NULL) 
+summary(var.model1)
+```
+
+
+```{r}
+serial.test(var.model1, lags.pt = 20, type = "PT.asymptotic")
+```
+
+No signs of auto correlation
+
+```{r}
+arch.test(var.model1, lags.multi = 15, multivariate.only = TRUE)
+```
+
+No signs of heteroscedasticty
+
+no ARCH effects in this model
+
+```{r}
+normality.test(var.model1, multivariate.only = TRUE)
+```
+
+
+```{r}
+plot(stability(var.model1, type = "OLS-CUSUM"))
+```
+
+
+## Granger causality test
+
+# GHIm
+```{r}
+causality(var.model1, cause = "GHIm")
+```
+
+ Based on the Granger causality results , we conclude that GHIm does not cause GTIm DIFm DNIm
+
+```{r}
+causality(var.model1, cause = "GTIm")
+```
+
+ Based on the Granger causality results , we conclude that GTIm does not cause GHIm DIFm DNIm
+
+```{r}
+causality(var.model1, cause = "DIFm")
+```
+
+ Based on the Granger causality results , we conclude that DIFm does not cause GHIm GTIm DNIm
+
+
+```{r}
+causality(var.model1, cause = "DNIm")
+```
+
+
+ Based on the Granger causality results , we conclude that DNIm does not cause GHIm GTIm DIFm
+
+```{r}
+pp.test((GHIm))
+```
+
+
+```{r}
+var.model1$varresult
+```
+
+
+## Impulse response functions 
+
+```{r}
+RRPirf <- irf(var.model1, impulse = "GHIm", response = "GHIm", n.ahead = 12, boot = TRUE)
+plot(RRPirf, ylab = "GHIm", main = "GHIm's shock to GHIm")
+M1irf <- irf(var.model1, impulse = "GHIm", response = "GTIm", n.ahead = 12, boot = TRUE)
+plot(M1irf, ylab = "GTIm", main = "GHIm's shock to GTIm")
+CPIirf <- irf(var.model1, impulse = "GHIm", response = "DIFm", n.ahead = 12, boot = TRUE)
+plot(CPIirf, ylab = "DIFm", main = "GHIm's shock to DIFm")
+lnIPirf <- irf(var.model1, impulse = "GHIm", response = "DNIm", n.ahead = 12, boot = TRUE)
+plot(lnIPirf, ylab = "DNIm", main = "GHIm's shock to DNIm")
+```
+
+These graphs indocate that the fall in GHIm values trigger a drop in the values of GTIm , DIFm and DNIm
+
+
+## Forecasting VAR models 
+
+```{r}
+forecast.var.model <- predict(var.model1, n.ahead = 12, ci = 0.95)
+fanchart(forecast.var.model, names = "GHIm", main = "Fanchart for GHIm", xlab = "Horizon", ylab = "GHIm")
+fanchart(forecast.var.model, names = "GTIm", main = "Fanchart for GTIm", xlab = "Horizon", ylab = "GTIm")
+fanchart(forecast.var.model, names = "DIFm", main = "Fanchart for DIFm", xlab = "Horizon", ylab = "DIFm")
+fanchart(forecast.var.model, names = "DNIm", main = "Fanchart for DNIm", xlab = "Horizon", ylab = "DNIm")
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+forecast.var.GHIm<- data.frame(forecast.var.model$fcst$GHIm)
+```
+
+## GHIm
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GHIm',test.solar.monthly$GHIm,forecast.var.GHIm$fcst)
+```
+
+The forecast is really good 
+
+
+##GTIm
+
+```{r}
+forecast.var.GTIm<- data.frame(forecast.var.model$fcst$GTIm)
+```
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'GTIm',test.solar.monthly$GTIm,forecast.var.GTIm$fcst)
+```
+
+
+The forecast is not that good.
+
+
+
+##DIFm
+
+```{r}
+forecast.var.DIFm<- data.frame(forecast.var.model$fcst$DIFm)
+```
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DIFm',test.solar.monthly$DIFm,forecast.var.DIFm$fcst)
+```
+
+
+##DNIm
+
+```{r}
+forecast.var.DNIm<- data.frame(forecast.var.model$fcst$DNIm)
+```
+
+```{r}
+forecast_plot_2019(test.solar.monthly, 'DNIm',test.solar.monthly$DNIm,forecast.var.DNIm$fcst)
+```
+
+Really bad forecast
+
+#### Residuals analysis
+
+
+
+## GHIm
+
+```{r}
+GHIm.models <- list(lm.GHIm.PWAT,arima.GHIm,sarima.GHIm, lm.arima.GHIm,ets.GHIm,arfima.GHIm, hw_addi_GHIm, tbats.GHIm)
+```
+
+
+```{r}
+AIC.GHIm <- c()
+BIC.GHIm <- c()
+box.ljung.GHIm <- c()
+shapiro.wilk.GHIm <- c()
+
+```
+
+```{r}
+AIC.GHIm <- c(AIC(lm.GHIm.PWAT) , AIC(arima.GHIm) , AIC(sarima.GHIm), AIC(lm.arima.GHIm) , AIC(ets.GHIm) ,  AIC(arfima.GHIm) , hw_addi_GHIm$model$aic, tbats.GHIm$AIC )
+```
+
+
+```{r}
+BIC.GHIm <- c(BIC(lm.GHIm.PWAT) , BIC(arima.GHIm) , BIC(sarima.GHIm), BIC(lm.arima.GHIm) , BIC(ets.GHIm) ,  BIC(arfima.GHIm) , hw_addi_GHIm$model$bic, 0 )
+```
+
+
+```{r}
+shapiro.wilk.GHIm <- c(shapiro.test(lm.GHIm.PWAT$residuals)$p.value , shapiro.test(arima.GHIm$residuals)$p.value, 
+shapiro.test(sarima.GHIm$residuals)$p.value ,shapiro.test(lm.arima.GHIm$residuals)$p.value ,shapiro.test(ets.GHIm$residuals)$p.value , shapiro.test(arfima.GHIm$residuals)$p.value , shapiro.test(hw_addi_GHIm$residuals)$p.value, shapiro.test(residuals(tbats.GHIm))$p.value )
+```
+
+
+```{r}
+for (i in GHIm.models){
+  box.ljung.GHIm <- c(box.ljung.GHIm,as.numeric(Box.test(resid(i), lag = 10, type = "Ljung-Box")['p.value']))
+}
+```
+
+
+```{r}
+GHIm.results.residuals <- cbind(as.numeric(AIC.GHIm),as.numeric(BIC.GHIm),as.numeric(shapiro.wilk.GHIm),as.numeric(box.ljung.GHIm))
+GHIm.results.residuals <- data.frame(GHIm.results.residuals) 
+```
+
+
+```{r}
+colnames(GHIm.results.residuals) <- c("AIC.GHIm","BIC.GHIm","shapiro.wilk.GHIm.p.val", "box.ljung.GHIm.p-value")
+rownames(GHIm.results.residuals) <- c("lm.GHIm.PWAT","arima.GHIm","sarima.GHIm","lm.arima.GHIm","ets.GHIm","arfima.GHIm","hw_addi_GHIm", "tbats.GHIm")
+GHIm.results.residuals
+```
+
+## GTIm
+
+
+```{r}
+GTIm.models <- list(lm.GTIm.PWAT,arima.GTIm,sarima.GTIm, lm.arima.GTIm,ets.GTIm,arfima.GTIm, hw_addi_GTIm, tbats.GTIm)
+```
+
+
+```{r}
+AIC.GTIm <- c()
+BIC.GTIm <- c()
+box.ljung.GTIm <- c()
+shapiro.wilk.GTIm <- c()
+
+```
+
+```{r}
+AIC.GTIm <- c(AIC(lm.GTIm.PWAT) , AIC(arima.GTIm) , AIC(sarima.GTIm), AIC(lm.arima.GTIm) , AIC(ets.GTIm) ,  AIC(arfima.GTIm) , hw_addi_GTIm$model$aic, tbats.GTIm$AIC )
+```
+
+
+```{r}
+BIC.GTIm <- c(BIC(lm.GTIm.PWAT) , BIC(arima.GTIm) , BIC(sarima.GTIm), BIC(lm.arima.GTIm) , BIC(ets.GTIm) ,  BIC(arfima.GTIm) , hw_addi_GTIm$model$bic, 0 )
+```
+
+
+```{r}
+shapiro.wilk.GTIm <- c(shapiro.test(lm.GTIm.PWAT$residuals)$p.value , shapiro.test(arima.GTIm$residuals)$p.value, 
+shapiro.test(sarima.GTIm$residuals)$p.value ,shapiro.test(lm.arima.GTIm$residuals)$p.value ,shapiro.test(ets.GTIm$residuals)$p.value , shapiro.test(arfima.GTIm$residuals)$p.value , shapiro.test(hw_addi_GTIm$residuals)$p.value, shapiro.test(residuals(tbats.GTIm))$p.value )
+```
+
+
+```{r}
+for (i in GTIm.models){
+  box.ljung.GTIm <- c(box.ljung.GTIm,as.numeric(Box.test(resid(i), lag = 10, type = "Ljung-Box")['p.value']))
+}
+```
+
+
+```{r}
+GTIm.results.residuals <- cbind(as.numeric(AIC.GTIm),as.numeric(BIC.GTIm),as.numeric(shapiro.wilk.GTIm),as.numeric(box.ljung.GTIm))
+GTIm.results.residuals <- data.frame(GTIm.results.residuals) 
+```
+
+
+```{r}
+colnames(GTIm.results.residuals) <- c("AIC.GTIm","BIC.GTIm","shapiro.wilk.GTIm.p.val", "box.ljung.GTIm.p-value")
+rownames(GTIm.results.residuals) <- c("lm.GTIm.PWAT","arima.GTIm","sarima.GTIm","lm.arima.GTIm","ets.GTIm","arfima.GTIm","hw_addi_GTIm", "tbats.GTIm")
+GTIm.results.residuals
+```
+
+##DIFm
+
+```{r}
+DIFm.models <- list(lm.DIFm.PWAT,arima.DIFm,sarima.DIFm, lm.arima.DIFm,ets.DIFm,arfima.DIFm, hw_multipExp_DIFm, tbats.DIFm)
+```
+
+
+```{r}
+AIC.DIFm <- c()
+BIC.DIFm <- c()
+box.ljung.DIFm <- c()
+shapiro.wilk.DIFm <- c()
+
+```
+
+```{r}
+AIC.DIFm <- c(AIC(lm.DIFm.PWAT) , AIC(arima.DIFm) , AIC(sarima.DIFm), AIC(lm.arima.DIFm) , AIC(ets.DIFm) ,  AIC(arfima.DIFm) , hw_multipExp_DIFm$model$aic, tbats.DIFm$AIC )
+```
+
+
+```{r}
+BIC.DIFm <- c(BIC(lm.DIFm.PWAT) , BIC(arima.DIFm) , BIC(sarima.DIFm), BIC(lm.arima.DIFm) , BIC(ets.DIFm) ,  BIC(arfima.DIFm) , hw_multipExp_DIFm$model$bic, 0 )
+```
+
+
+```{r}
+shapiro.wilk.DIFm <- c(shapiro.test(lm.DIFm.PWAT$residuals)$p.value , shapiro.test(arima.DIFm$residuals)$p.value, 
+shapiro.test(sarima.DIFm$residuals)$p.value ,shapiro.test(lm.arima.DIFm$residuals)$p.value ,shapiro.test(ets.DIFm$residuals)$p.value , shapiro.test(arfima.DIFm$residuals)$p.value , shapiro.test(hw_multipExp_DIFm$residuals)$p.value, shapiro.test(residuals(tbats.DIFm))$p.value )
+```
+
+
+```{r}
+for (i in DIFm.models){
+  box.ljung.DIFm <- c(box.ljung.DIFm,as.numeric(Box.test(resid(i), lag = 10, type = "Ljung-Box")['p.value']))
+}
+```
+
+
+```{r}
+DIFm.results.residuals <- cbind(as.numeric(AIC.DIFm),as.numeric(BIC.DIFm),as.numeric(shapiro.wilk.DIFm),as.numeric(box.ljung.DIFm))
+DIFm.results.residuals <- data.frame(DIFm.results.residuals) 
+```
+
+
+```{r}
+colnames(DIFm.results.residuals) <- c("AIC.DIFm","BIC.DIFm","shapiro.wilk.DIFm.p.val", "box.ljung.DIFm.p-value")
+rownames(DIFm.results.residuals) <- c("lm.DIFm.PWAT","arima.DIFm","sarima.DIFm","lm.arima.DIFm","ets.DIFm","arfima.DIFm","hw_multipExp_DIFm", "tbats.DIFm")
+DIFm.results.residuals
+```
+
+
+##DNIm
+
+```{r}
+DNIm.models <- list(lm.DNIm.PWAT,arima.DNIm,sarima.DNIm, lm.arima.DNIm,ets.DNIm,arfima.DNIm, hw_addi_DNIm, tbats.DNIm)
+```
+
+
+```{r}
+AIC.DNIm <- c()
+BIC.DNIm <- c()
+box.ljung.DNIm <- c()
+shapiro.wilk.DNIm <- c()
+
+```
+
+```{r}
+AIC.DNIm <- c(AIC(lm.DNIm.PWAT) , AIC(arima.DNIm) , AIC(sarima.DNIm), AIC(lm.arima.DNIm) , AIC(ets.DNIm) ,  AIC(arfima.DNIm) , hw_addi_DNIm$model$aic, tbats.DNIm$AIC )
+```
+
+
+```{r}
+BIC.DNIm <- c(BIC(lm.DNIm.PWAT) , BIC(arima.DNIm) , BIC(sarima.DNIm), BIC(lm.arima.DNIm) , BIC(ets.DNIm) ,  BIC(arfima.DNIm) , hw_addi_DNIm$model$bic, 0 )
+```
+
+
+```{r}
+shapiro.wilk.DNIm <- c(shapiro.test(lm.DNIm.PWAT$residuals)$p.value , shapiro.test(arima.DNIm$residuals)$p.value, 
+shapiro.test(sarima.DNIm$residuals)$p.value ,shapiro.test(lm.arima.DNIm$residuals)$p.value ,shapiro.test(ets.DNIm$residuals)$p.value , shapiro.test(arfima.DNIm$residuals)$p.value , shapiro.test(hw_addi_DNIm$residuals)$p.value, shapiro.test(residuals(tbats.DNIm))$p.value )
+```
+
+
+```{r}
+for (i in DNIm.models){
+  box.ljung.DNIm <- c(box.ljung.DNIm,as.numeric(Box.test(resid(i), lag = 10, type = "Ljung-Box")['p.value']))
+}
+```
+
+
+```{r}
+DNIm.results.residuals <- cbind(as.numeric(AIC.DNIm),as.numeric(BIC.DNIm),as.numeric(shapiro.wilk.DNIm),as.numeric(box.ljung.DNIm))
+DNIm.results.residuals <- data.frame(DNIm.results.residuals) 
+```
+
+
+```{r}
+colnames(DNIm.results.residuals) <- c("AIC.DNIm","BIC.DNIm","shapiro.wilk.DNIm.p.val", "box.ljung.DNIm.p-value")
+rownames(DNIm.results.residuals) <- c("lm.DNIm.PWAT","arima.DNIm","sarima.DNIm","lm.arima.DNIm","ets.DNIm","arfima.DNIm","hw_addi_DNIm", "tbats.DNIm")
+DNIm.results.residuals
+```
+
+
+#### Error Analysis
+
+```{r}
+SMAPE <- function(actual.val, pred.val) {
+  temp <- abs(actual.val - pred.val) / ((abs(actual.val) + abs(pred.val))/2)
+  return(sum(temp, na.rm = T) * 100/length(actual.val))
+}
+```
+
+
+
+```{r}
+SMAPE.df <- data.frame(row.names = c('GHIm', 'GTIm', 'DIFm', 'DNIm'),Linear_Regression = c(SMAPE(test.solar.monthly$GHIm, lm_forecast.GHIm),SMAPE(test.solar.monthly$GTIm, lm_forecast.GTIm),SMAPE(test.solar.monthly$DIFm, lm_forecast.DIFm), SMAPE(test.solar.monthly$DNIm, lm_forecast.DNIm)))
+SMAPE.df
+```
+
+
+
+
+```{r}
+SMAPE.df$LM.ARMA.ERRs <- c(SMAPE(test.solar.monthly$GHIm, predict(lm.arima.GHIm, newxreg=test.solar.monthly$PWAT)$pred),SMAPE(test.solar.monthly$GTIm, predict(lm.arima.GTIm, newxreg=test.solar.monthly$PWAT)$pred), SMAPE(test.solar.monthly$DIFm, predict(lm.arima.DIFm, newxreg=test.solar.monthly$PWAT)$pred),SMAPE(test.solar.monthly$DNIm, predict(lm.arima.DNIm, newxreg=test.solar.monthly$PWAT)$pred))
+SMAPE.df
+```
+
+
+```{r}
+SMAPE.df$Holt.Winters <- c(SMAPE(test.solar.monthly$GHIm,as.numeric(forecast(hw_addi_GHIm, h=12)$mean )),SMAPE(test.solar.monthly$GTIm,as.numeric(forecast(hw_addi_GTIm, h=12)$mean )), SMAPE(test.solar.monthly$DIFm,as.numeric(forecast(hw_multipExp_DIFm, h=12)$mean )), SMAPE(test.solar.monthly$DNIm,as.numeric(forecast(hw_addi_DNIm, h=12)$mean )))
+SMAPE.df
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+SMAPE.df$ARIMA <- c(SMAPE(test.solar.monthly$GHIm,as.numeric(forecast(arima.GHIm, h=12)$mean )),SMAPE(test.solar.monthly$GTIm,as.numeric(forecast(arima.GTIm, h=12)$mean )), SMAPE(test.solar.monthly$DIFm,as.numeric(forecast(arima.DIFm, h=12)$mean )), SMAPE(test.solar.monthly$DNIm,as.numeric(forecast(arima.DNIm, h=12)$mean )))
+SMAPE.df
+```
+
+
+```{r}
+SMAPE.df$SARIMA <- c(SMAPE(test.solar.monthly$GHIm,as.numeric(forecast(sarima.GHIm, h=12)$mean )),SMAPE(test.solar.monthly$GTIm,as.numeric(forecast(sarima.GTIm, h=12)$mean )), SMAPE(test.solar.monthly$DIFm,as.numeric(forecast(sarima.DIFm, h=12)$mean )), SMAPE(test.solar.monthly$DNIm,as.numeric(forecast(sarima.DNIm, h=12)$mean )))
+SMAPE.df
+```
+
+
+```{r}
+SMAPE.df$ARFIMA <- c(SMAPE(test.solar.monthly$GHIm,as.numeric(forecast(arfima.GHIm, h=12)$mean )),SMAPE(test.solar.monthly$GTIm,as.numeric(forecast(arfima.GTIm, h=12)$mean )), SMAPE(test.solar.monthly$DIFm,as.numeric(forecast(arfima.DIFm, h=12)$mean )), SMAPE(test.solar.monthly$DNIm,as.numeric(forecast(arfima.DNIm, h=12)$mean )))
+SMAPE.df
+```
+
+
+```{r}
+SMAPE.df$ETS <- c(SMAPE(test.solar.monthly$GHIm,as.numeric(forecast(ets.GHIm, h=12)$mean )),SMAPE(test.solar.monthly$GTIm,as.numeric(forecast(ets.GTIm, h=12)$mean )), SMAPE(test.solar.monthly$DIFm,as.numeric(forecast(ets.DIFm, h=12)$mean )), SMAPE(test.solar.monthly$DNIm,as.numeric(forecast(ets.DNIm, h=12)$mean )))
+SMAPE.df
+```
+
+
+```{r}
+SMAPE.df$TBATS <- c(SMAPE(test.solar.monthly$GHIm,as.numeric(forecast(tbats.GHIm, h=12)$mean )),SMAPE(test.solar.monthly$GTIm,as.numeric(forecast(tbats.GTIm, h=12)$mean )), SMAPE(test.solar.monthly$DIFm,as.numeric(forecast(tbats.DIFm, h=12)$mean )), SMAPE(test.solar.monthly$DNIm,as.numeric(forecast(tbats.DNIm, h=12)$mean )))
+SMAPE.df
+```
+
+
+
+```{r}
+SMAPE.df$VAR <- c(SMAPE(test.solar.monthly$GHIm,forecast.var.GHIm$fcst),SMAPE(test.solar.monthly$GTIm,forecast.var.GTIm$fcst), SMAPE(test.solar.monthly$DIFm,forecast.var.DIFm$fcst), SMAPE(test.solar.monthly$DNIm,forecast.var.DNIm$fcst))
+SMAPE.df
+```
+
+
+```{r}
+t(SMAPE.df)
+```
+
+
+### RMSE
+
+```{r}
+library(Metrics)
+```
+
+
+```{r}
+RMSE.df <- data.frame(row.names = c('GHIm', 'GTIm', 'DIFm', 'DNIm'),Linear_Regression = c(rmse(test.solar.monthly$GHIm, lm_forecast.GHIm),rmse(test.solar.monthly$GTIm, lm_forecast.GTIm),rmse(test.solar.monthly$DIFm, lm_forecast.DIFm), rmse(test.solar.monthly$DNIm, lm_forecast.DNIm)))
+RMSE.df
+```
+
+
+
+
+```{r}
+RMSE.df$LM.ARMA.ERRs <- c(rmse(test.solar.monthly$GHIm, predict(lm.arima.GHIm, newxreg=test.solar.monthly$PWAT)$pred),rmse(test.solar.monthly$GTIm, predict(lm.arima.GTIm, newxreg=test.solar.monthly$PWAT)$pred), rmse(test.solar.monthly$DIFm, predict(lm.arima.DIFm, newxreg=test.solar.monthly$PWAT)$pred),rmse(test.solar.monthly$DNIm, predict(lm.arima.DNIm, newxreg=test.solar.monthly$PWAT)$pred))
+RMSE.df
+```
+
+
+```{r}
+RMSE.df$Holt.Winters <- c(rmse(test.solar.monthly$GHIm,as.numeric(forecast(hw_addi_GHIm, h=12)$mean )),rmse(test.solar.monthly$GTIm,as.numeric(forecast(hw_addi_GTIm, h=12)$mean )), rmse(test.solar.monthly$DIFm,as.numeric(forecast(hw_multipExp_DIFm, h=12)$mean )), rmse(test.solar.monthly$DNIm,as.numeric(forecast(hw_addi_DNIm, h=12)$mean )))
+RMSE.df
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+RMSE.df$ARIMA <- c(rmse(test.solar.monthly$GHIm,as.numeric(forecast(arima.GHIm, h=12)$mean )),rmse(test.solar.monthly$GTIm,as.numeric(forecast(arima.GTIm, h=12)$mean )), rmse(test.solar.monthly$DIFm,as.numeric(forecast(arima.DIFm, h=12)$mean )), rmse(test.solar.monthly$DNIm,as.numeric(forecast(arima.DNIm, h=12)$mean )))
+RMSE.df
+```
+
+
+```{r}
+RMSE.df$SARIMA <- c(rmse(test.solar.monthly$GHIm,as.numeric(forecast(sarima.GHIm, h=12)$mean )),rmse(test.solar.monthly$GTIm,as.numeric(forecast(sarima.GTIm, h=12)$mean )), rmse(test.solar.monthly$DIFm,as.numeric(forecast(sarima.DIFm, h=12)$mean )), rmse(test.solar.monthly$DNIm,as.numeric(forecast(sarima.DNIm, h=12)$mean )))
+RMSE.df
+```
+
+
+```{r}
+RMSE.df$ARFIMA <- c(rmse(test.solar.monthly$GHIm,as.numeric(forecast(arfima.GHIm, h=12)$mean )),rmse(test.solar.monthly$GTIm,as.numeric(forecast(arfima.GTIm, h=12)$mean )), rmse(test.solar.monthly$DIFm,as.numeric(forecast(arfima.DIFm, h=12)$mean )), rmse(test.solar.monthly$DNIm,as.numeric(forecast(arfima.DNIm, h=12)$mean )))
+RMSE.df
+```
+
+
+```{r}
+RMSE.df$ETS <- c(rmse(test.solar.monthly$GHIm,as.numeric(forecast(ets.GHIm, h=12)$mean )),rmse(test.solar.monthly$GTIm,as.numeric(forecast(ets.GTIm, h=12)$mean )), rmse(test.solar.monthly$DIFm,as.numeric(forecast(ets.DIFm, h=12)$mean )), rmse(test.solar.monthly$DNIm,as.numeric(forecast(ets.DNIm, h=12)$mean )))
+RMSE.df
+```
+
+
+```{r}
+RMSE.df$TBATS <- c(rmse(test.solar.monthly$GHIm,as.numeric(forecast(tbats.GHIm, h=12)$mean )),rmse(test.solar.monthly$GTIm,as.numeric(forecast(tbats.GTIm, h=12)$mean )), rmse(test.solar.monthly$DIFm,as.numeric(forecast(tbats.DIFm, h=12)$mean )), rmse(test.solar.monthly$DNIm,as.numeric(forecast(tbats.DNIm, h=12)$mean )))
+RMSE.df
+```
+
+
+
+```{r}
+RMSE.df$VAR <- c(rmse(test.solar.monthly$GHIm,forecast.var.GHIm$fcst),rmse(test.solar.monthly$GTIm,forecast.var.GTIm$fcst), rmse(test.solar.monthly$DIFm,forecast.var.DIFm$fcst), rmse(test.solar.monthly$DNIm,forecast.var.DNIm$fcst))
+RMSE.df
+```
+
+
+```{r}
+t(RMSE.df)
+```
+
+
+
+
+### MAE ( Mean absolute error)
+
+
+```{r}
+MAE.df <- data.frame(row.names = c('GHIm', 'GTIm', 'DIFm', 'DNIm'),Linear_Regression = c(mae(test.solar.monthly$GHIm, lm_forecast.GHIm),mae(test.solar.monthly$GTIm, lm_forecast.GTIm),mae(test.solar.monthly$DIFm, lm_forecast.DIFm), mae(test.solar.monthly$DNIm, lm_forecast.DNIm)))
+MAE.df
+```
+
+
+
+
+```{r}
+MAE.df$LM.ARMA.ERRs <- c(mae(test.solar.monthly$GHIm, predict(lm.arima.GHIm, newxreg=test.solar.monthly$PWAT)$pred),mae(test.solar.monthly$GTIm, predict(lm.arima.GTIm, newxreg=test.solar.monthly$PWAT)$pred), mae(test.solar.monthly$DIFm, predict(lm.arima.DIFm, newxreg=test.solar.monthly$PWAT)$pred),mae(test.solar.monthly$DNIm, predict(lm.arima.DNIm, newxreg=test.solar.monthly$PWAT)$pred))
+MAE.df
+```
+
+
+```{r}
+MAE.df$Holt.Winters <- c(mae(test.solar.monthly$GHIm,as.numeric(forecast(hw_addi_GHIm, h=12)$mean )),mae(test.solar.monthly$GTIm,as.numeric(forecast(hw_addi_GTIm, h=12)$mean )), mae(test.solar.monthly$DIFm,as.numeric(forecast(hw_multipExp_DIFm, h=12)$mean )), mae(test.solar.monthly$DNIm,as.numeric(forecast(hw_addi_DNIm, h=12)$mean )))
+MAE.df
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+MAE.df$ARIMA <- c(mae(test.solar.monthly$GHIm,as.numeric(forecast(arima.GHIm, h=12)$mean )),mae(test.solar.monthly$GTIm,as.numeric(forecast(arima.GTIm, h=12)$mean )), mae(test.solar.monthly$DIFm,as.numeric(forecast(arima.DIFm, h=12)$mean )), mae(test.solar.monthly$DNIm,as.numeric(forecast(arima.DNIm, h=12)$mean )))
+MAE.df
+```
+
+
+```{r}
+MAE.df$SARIMA <- c(mae(test.solar.monthly$GHIm,as.numeric(forecast(sarima.GHIm, h=12)$mean )),mae(test.solar.monthly$GTIm,as.numeric(forecast(sarima.GTIm, h=12)$mean )), mae(test.solar.monthly$DIFm,as.numeric(forecast(sarima.DIFm, h=12)$mean )), mae(test.solar.monthly$DNIm,as.numeric(forecast(sarima.DNIm, h=12)$mean )))
+MAE.df
+```
+
+
+```{r}
+MAE.df$ARFIMA <- c(mae(test.solar.monthly$GHIm,as.numeric(forecast(arfima.GHIm, h=12)$mean )),mae(test.solar.monthly$GTIm,as.numeric(forecast(arfima.GTIm, h=12)$mean )), mae(test.solar.monthly$DIFm,as.numeric(forecast(arfima.DIFm, h=12)$mean )), mae(test.solar.monthly$DNIm,as.numeric(forecast(arfima.DNIm, h=12)$mean )))
+MAE.df
+```
+
+
+```{r}
+MAE.df$ETS <- c(mae(test.solar.monthly$GHIm,as.numeric(forecast(ets.GHIm, h=12)$mean )),mae(test.solar.monthly$GTIm,as.numeric(forecast(ets.GTIm, h=12)$mean )), mae(test.solar.monthly$DIFm,as.numeric(forecast(ets.DIFm, h=12)$mean )), mae(test.solar.monthly$DNIm,as.numeric(forecast(ets.DNIm, h=12)$mean )))
+MAE.df
+```
+
+
+```{r}
+MAE.df$TBATS <- c(mae(test.solar.monthly$GHIm,as.numeric(forecast(tbats.GHIm, h=12)$mean )),mae(test.solar.monthly$GTIm,as.numeric(forecast(tbats.GTIm, h=12)$mean )), mae(test.solar.monthly$DIFm,as.numeric(forecast(tbats.DIFm, h=12)$mean )), mae(test.solar.monthly$DNIm,as.numeric(forecast(tbats.DNIm, h=12)$mean )))
+MAE.df
+```
+
+
+
+```{r}
+MAE.df$VAR <- c(mae(test.solar.monthly$GHIm,forecast.var.GHIm$fcst),mae(test.solar.monthly$GTIm,forecast.var.GTIm$fcst), mae(test.solar.monthly$DIFm,forecast.var.DIFm$fcst), mae(test.solar.monthly$DNIm,forecast.var.DNIm$fcst))
+MAE.df
+```
+
+
+```{r}
+t(MAE.df)
+```
+
+
+
+### SSE ( Sum of  square errors)
+
+```{r}
+SSE.df <- data.frame(row.names = c('GHIm', 'GTIm', 'DIFm', 'DNIm'),Linear_Regression = c(sse(test.solar.monthly$GHIm, lm_forecast.GHIm),sse(test.solar.monthly$GTIm, lm_forecast.GTIm),sse(test.solar.monthly$DIFm, lm_forecast.DIFm), sse(test.solar.monthly$DNIm, lm_forecast.DNIm)))
+SSE.df
+```
+
+
+
+
+```{r}
+SSE.df$LM.ARMA.ERRs <- c(sse(test.solar.monthly$GHIm, predict(lm.arima.GHIm, newxreg=test.solar.monthly$PWAT)$pred),sse(test.solar.monthly$GTIm, predict(lm.arima.GTIm, newxreg=test.solar.monthly$PWAT)$pred), sse(test.solar.monthly$DIFm, predict(lm.arima.DIFm, newxreg=test.solar.monthly$PWAT)$pred),sse(test.solar.monthly$DNIm, predict(lm.arima.DNIm, newxreg=test.solar.monthly$PWAT)$pred))
+SSE.df
+```
+
+
+```{r}
+SSE.df$Holt.Winters <- c(sse(test.solar.monthly$GHIm,as.numeric(forecast(hw_addi_GHIm, h=12)$mean )),sse(test.solar.monthly$GTIm,as.numeric(forecast(hw_addi_GTIm, h=12)$mean )), sse(test.solar.monthly$DIFm,as.numeric(forecast(hw_multipExp_DIFm, h=12)$mean )), sse(test.solar.monthly$DNIm,as.numeric(forecast(hw_addi_DNIm, h=12)$mean )))
+SSE.df
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+SSE.df$ARIMA <- c(sse(test.solar.monthly$GHIm,as.numeric(forecast(arima.GHIm, h=12)$mean )),sse(test.solar.monthly$GTIm,as.numeric(forecast(arima.GTIm, h=12)$mean )), sse(test.solar.monthly$DIFm,as.numeric(forecast(arima.DIFm, h=12)$mean )), sse(test.solar.monthly$DNIm,as.numeric(forecast(arima.DNIm, h=12)$mean )))
+SSE.df
+```
+
+
+```{r}
+SSE.df$SARIMA <- c(sse(test.solar.monthly$GHIm,as.numeric(forecast(sarima.GHIm, h=12)$mean )),sse(test.solar.monthly$GTIm,as.numeric(forecast(sarima.GTIm, h=12)$mean )), sse(test.solar.monthly$DIFm,as.numeric(forecast(sarima.DIFm, h=12)$mean )), sse(test.solar.monthly$DNIm,as.numeric(forecast(sarima.DNIm, h=12)$mean )))
+SSE.df
+```
+
+
+```{r}
+SSE.df$ARFIMA <- c(sse(test.solar.monthly$GHIm,as.numeric(forecast(arfima.GHIm, h=12)$mean )),sse(test.solar.monthly$GTIm,as.numeric(forecast(arfima.GTIm, h=12)$mean )), sse(test.solar.monthly$DIFm,as.numeric(forecast(arfima.DIFm, h=12)$mean )), sse(test.solar.monthly$DNIm,as.numeric(forecast(arfima.DNIm, h=12)$mean )))
+SSE.df
+```
+
+
+```{r}
+SSE.df$ETS <- c(sse(test.solar.monthly$GHIm,as.numeric(forecast(ets.GHIm, h=12)$mean )),sse(test.solar.monthly$GTIm,as.numeric(forecast(ets.GTIm, h=12)$mean )), sse(test.solar.monthly$DIFm,as.numeric(forecast(ets.DIFm, h=12)$mean )), sse(test.solar.monthly$DNIm,as.numeric(forecast(ets.DNIm, h=12)$mean )))
+SSE.df
+```
+
+
+```{r}
+SSE.df$TBATS <- c(sse(test.solar.monthly$GHIm,as.numeric(forecast(tbats.GHIm, h=12)$mean )),sse(test.solar.monthly$GTIm,as.numeric(forecast(tbats.GTIm, h=12)$mean )), sse(test.solar.monthly$DIFm,as.numeric(forecast(tbats.DIFm, h=12)$mean )), sse(test.solar.monthly$DNIm,as.numeric(forecast(tbats.DNIm, h=12)$mean )))
+SSE.df
+```
+
+
+
+```{r}
+SSE.df$VAR <- c(sse(test.solar.monthly$GHIm,forecast.var.GHIm$fcst),sse(test.solar.monthly$GTIm,forecast.var.GTIm$fcst), sse(test.solar.monthly$DIFm,forecast.var.DIFm$fcst), sse(test.solar.monthly$DNIm,forecast.var.DNIm$fcst))
+SSE.df
+```
+
+
+```{r}
+t(SSE.df)
+```
+
+
+### MAPE
+
+
+
+```{r}
+MAPE.df <- data.frame(row.names = c('GHIm', 'GTIm', 'DIFm', 'DNIm'),Linear_Regression = c(mape(test.solar.monthly$GHIm, lm_forecast.GHIm),mape(test.solar.monthly$GTIm, lm_forecast.GTIm),mape(test.solar.monthly$DIFm, lm_forecast.DIFm), mape(test.solar.monthly$DNIm, lm_forecast.DNIm)))
+MAPE.df
+```
+
+
+
+
+```{r}
+MAPE.df$LM.ARMA.ERRs <- c(mape(test.solar.monthly$GHIm, predict(lm.arima.GHIm, newxreg=test.solar.monthly$PWAT)$pred),mape(test.solar.monthly$GTIm, predict(lm.arima.GTIm, newxreg=test.solar.monthly$PWAT)$pred), mape(test.solar.monthly$DIFm, predict(lm.arima.DIFm, newxreg=test.solar.monthly$PWAT)$pred),mape(test.solar.monthly$DNIm, predict(lm.arima.DNIm, newxreg=test.solar.monthly$PWAT)$pred))
+MAPE.df
+```
+
+
+```{r}
+MAPE.df$Holt.Winters <- c(mape(test.solar.monthly$GHIm,as.numeric(forecast(hw_addi_GHIm, h=12)$mean )),mape(test.solar.monthly$GTIm,as.numeric(forecast(hw_addi_GTIm, h=12)$mean )), mape(test.solar.monthly$DIFm,as.numeric(forecast(hw_multipExp_DIFm, h=12)$mean )), mape(test.solar.monthly$DNIm,as.numeric(forecast(hw_addi_DNIm, h=12)$mean )))
+MAPE.df
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+MAPE.df$ARIMA <- c(mape(test.solar.monthly$GHIm,as.numeric(forecast(arima.GHIm, h=12)$mean )),mape(test.solar.monthly$GTIm,as.numeric(forecast(arima.GTIm, h=12)$mean )), mape(test.solar.monthly$DIFm,as.numeric(forecast(arima.DIFm, h=12)$mean )), mape(test.solar.monthly$DNIm,as.numeric(forecast(arima.DNIm, h=12)$mean )))
+MAPE.df
+```
+
+
+```{r}
+MAPE.df$SARIMA <- c(mape(test.solar.monthly$GHIm,as.numeric(forecast(sarima.GHIm, h=12)$mean )),mape(test.solar.monthly$GTIm,as.numeric(forecast(sarima.GTIm, h=12)$mean )), mape(test.solar.monthly$DIFm,as.numeric(forecast(sarima.DIFm, h=12)$mean )), mape(test.solar.monthly$DNIm,as.numeric(forecast(sarima.DNIm, h=12)$mean )))
+MAPE.df
+```
+
+
+```{r}
+MAPE.df$ARFIMA <- c(mape(test.solar.monthly$GHIm,as.numeric(forecast(arfima.GHIm, h=12)$mean )),mape(test.solar.monthly$GTIm,as.numeric(forecast(arfima.GTIm, h=12)$mean )), mape(test.solar.monthly$DIFm,as.numeric(forecast(arfima.DIFm, h=12)$mean )), mape(test.solar.monthly$DNIm,as.numeric(forecast(arfima.DNIm, h=12)$mean )))
+MAPE.df
+```
+
+
+```{r}
+MAPE.df$ETS <- c(mape(test.solar.monthly$GHIm,as.numeric(forecast(ets.GHIm, h=12)$mean )),mape(test.solar.monthly$GTIm,as.numeric(forecast(ets.GTIm, h=12)$mean )), mape(test.solar.monthly$DIFm,as.numeric(forecast(ets.DIFm, h=12)$mean )), mape(test.solar.monthly$DNIm,as.numeric(forecast(ets.DNIm, h=12)$mean )))
+MAPE.df
+```
+
+
+```{r}
+MAPE.df$TBATS <- c(mape(test.solar.monthly$GHIm,as.numeric(forecast(tbats.GHIm, h=12)$mean )),mape(test.solar.monthly$GTIm,as.numeric(forecast(tbats.GTIm, h=12)$mean )), mape(test.solar.monthly$DIFm,as.numeric(forecast(tbats.DIFm, h=12)$mean )), mape(test.solar.monthly$DNIm,as.numeric(forecast(tbats.DNIm, h=12)$mean )))
+MAPE.df
+```
+
+
+
+```{r}
+MAPE.df$VAR <- c(mape(test.solar.monthly$GHIm,forecast.var.GHIm$fcst),mape(test.solar.monthly$GTIm,forecast.var.GTIm$fcst), mape(test.solar.monthly$DIFm,forecast.var.DIFm$fcst), mape(test.solar.monthly$DNIm,forecast.var.DNIm$fcst))
+MAPE.df
+```
+
+
+```{r}
+t(MAPE.df)
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
